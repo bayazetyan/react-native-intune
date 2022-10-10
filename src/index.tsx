@@ -6,7 +6,9 @@ const LINKING_ERROR =
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo managed workflow\n';
 
-const Intune = NativeModules.Intune  ? NativeModules.Intune  : new Proxy(
+const Intune = NativeModules.Intune
+  ? NativeModules.Intune
+  : new Proxy(
       {},
       {
         get() {
@@ -15,6 +17,7 @@ const Intune = NativeModules.Intune  ? NativeModules.Intune  : new Proxy(
       }
     );
 
-export function multiply(a: number, b: number): Promise<number> {
-  return Intune.multiply(a, b);
-}
+export const registerAndEnroll = () => {
+  // WIP
+  Intune.registerAndEnroll();
+};
