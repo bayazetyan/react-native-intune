@@ -4,4 +4,4 @@ export interface Spec extends TurboModule {
   multiply(a: number, b: number): number;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>('Intune');
+export default TurboModuleRegistry.getEnforcing<Spec>('RNIntune');

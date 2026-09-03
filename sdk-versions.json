@@ -1,0 +1,53 @@
+{
+  "_comment": [
+    "Pinned Microsoft SDK versions. Single source of truth for which SDK builds this",
+    "library is tested against. Bump deliberately, never automatically: Microsoft requires",
+    "apps to stay on recent SDK versions and has previously blocked launches for apps that",
+    "fell behind, so a bump is a release-worthy change.",
+    "",
+    "iOS 21.x requires iOS 17+ and Xcode 26. If a consumer must support iOS 16, they need",
+    "SDK 20.x, which Microsoft supports for high-priority security fixes only. See SPEC.md."
+  ],
+
+  "ios": {
+    "repo": "microsoftconnect/ms-intune-app-sdk-ios",
+    "tag": "21.8.0",
+    "requires": { "ios": "17.0", "xcode": "26" },
+    "expect": [
+      { "glob": "IntuneMAMSwift.xcframework",     "as": "ios/IntuneMAMSwift.xcframework",     "required": true },
+      { "glob": "IntuneMAMSwiftStub.xcframework", "as": "ios/IntuneMAMSwiftStub.xcframework", "required": true },
+      { "glob": "IntuneMAMTelemetry.xcframework", "as": "ios/IntuneMAMTelemetry.xcframework", "required": true },
+      { "glob": "IntuneMAMResources.bundle",      "as": "ios/IntuneMAMResources.bundle",      "required": true },
+      { "glob": "IntuneMAMConfigurator.dmg",      "as": "ios/IntuneMAMConfigurator.dmg",      "required": true, "extractDmg": "IntuneMAMConfigurator", "extractAs": "ios/IntuneMAMConfigurator" },
+      { "glob": "REDIST.txt",                     "as": "ios/REDIST.txt",                     "required": false },
+      { "glob": "Microsoft License Terms*.pdf",   "as": "ios/",                               "required": false },
+      { "glob": "ThirdPartyNotices.txt",          "as": "ios/ThirdPartyNotices.txt",          "required": false }
+    ],
+    "_notes": [
+      "IntuneMAMStatic.xcframework is the static variant — not used; the dynamic one keeps",
+      "bundle size down when extensions are involved.",
+      "libIntuneMAMSwiftFileProvider.xcframework is only for File Provider extensions.",
+      "IntuneMAMResources.bundle carries every SDK screen (PIN, blur, diagnostics, MTD",
+      "compliance) and 28 localizations. Without it the SDK's UI cannot render."
+    ]
+  },
+
+  "android": {
+    "repo": "microsoftconnect/ms-intune-app-sdk-android",
+    "tag": "LATEST",
+    "expect": [
+      { "glob": "**/Microsoft.Intune.MAM.SDK.aar",         "as": "android/Microsoft.Intune.MAM.SDK.aar",                    "required": true },
+      { "glob": "**/com.microsoft.intune.mam.build.jar",   "as": "android/GradlePlugin/com.microsoft.intune.mam.build.jar", "required": true },
+      { "glob": "**/Microsoft.Intune.MAM.SDK.Support*.jar","as": "android/support/",                                        "required": false },
+      { "glob": "**/*License*.pdf",                        "as": "android/",                                                "required": false }
+    ]
+  },
+
+  "toolchain": {
+    "_comment": "A version bump forces a conscious check against the MAM compatibility matrix and the host app's toolchain (SPEC.md O-E).",
+    "javassist": "3.29.2-GA",
+    "msal_ios": "TODO — pin after the auth spike (SPEC.md S-3)",
+    "msal_android": "TODO — pin after the auth spike (SPEC.md S-3)",
+    "requires": { "gradle": "TODO", "agp": "TODO", "kotlin": "TODO", "java": "17" }
+  }
+}
