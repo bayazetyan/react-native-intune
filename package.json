@@ -16,9 +16,12 @@
     "src",
     "lib",
     "android",
+    "scripts",
     "ios",
     "cpp",
     "*.podspec",
+    "!vendor",
+    "sdk-versions.json",
     "react-native.config.js",
     "!ios/build",
     "!android/build",
@@ -32,6 +35,7 @@
     "!**/.*"
   ],
   "scripts": {
+    "fetch-sdks": "node scripts/fetch-sdks.mjs",
     "example": "yarn workspace react-native-intune-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
@@ -112,11 +116,11 @@
     ]
   },
   "codegenConfig": {
-    "name": "IntuneSpec",
+    "name": "RNIntuneSpec",
     "type": "modules",
     "jsSrcsDir": "src",
     "android": {
-      "javaPackageName": "com.intune"
+      "javaPackageName": "com.reactnativeintune"
     }
   },
   "jest": {
