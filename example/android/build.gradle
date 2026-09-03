@@ -15,6 +15,17 @@ buildscript {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+
+        // SPIKE S-2 — the MAM Gradle plugin belongs in the CONSUMER's build, which is
+        // what this example app stands in for. It is never applied inside the library
+        // (SPEC §12.3): it rewrites bytecode across the app and every dependency, so
+        // applying it in the library would rewrite only the library and protect nothing.
+        //
+        // Javassist is build-time only and must match the SDK exactly — 3.29.2-GA for
+        // SDK >= 10.0.0, from sdk-versions.json -> toolchain.javassist. mavenCentral,
+        // not jcenter as Microsoft's docs still say.
+        classpath("org.javassist:javassist:3.29.2-GA")
+        classpath files("$rootDir/../../vendor/android/GradlePlugin/com.microsoft.intune.mam.build.jar")
     }
 }
 

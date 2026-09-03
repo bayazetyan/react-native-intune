@@ -102,7 +102,7 @@ Check in this order — most Intune "bugs" are one of these:
 4. Is the PIN absent because of the shared global PIN timer rather than a defect? A device restart resets it.
 5. Did the process terminate after an unregister? That is expected, not a crash.
 6. Are there other SDK-integrated apps on the device (Outlook, Teams, OneDrive) changing observed behaviour? Microsoft's test guidance is to remove them.
-7. Did the Gradle plugin's HTML report (`build/outputs/logs`, with `report = true`) show the replacements you expected?
+7. Did the Gradle plugin's HTML report (`example/android/app/build/outputs/intune/<variant>/logs/IntuneMAMBuildReport.html`, with `report = true`) show the replacements you expected? One HTML file per rewritten class sits beside it. Microsoft's docs say `build/outputs/logs`; that is not where it lands.
 
 ## Code style
 
