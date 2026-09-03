@@ -39,6 +39,17 @@ RCT_EXPORT_MODULE(RNIntune)
   if ((self = [super init])) {
     _pendingEvents = [NSMutableArray new];
     _observing = NO;
+
+    // Wired here, not in configure(): the SDK can call a delegate before the app has
+    // called anything, and an event lost during startup means the reset machine never
+    // runs (SPEC §4.4). sendEventWithName: queues while nothing is listening.
+    __weak __typeof(self) weakSelf = self;
+    [RNIntuneCore.shared setEventSink:^(NSString *event, NSDictionary *body) {
+      // The SDK picks its own thread; RCTEventEmitter must be driven from the JS queue.
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf sendEventWithName:event body:body];
+      });
+    }];
   }
   return self;
 }

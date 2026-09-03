@@ -255,6 +255,10 @@ await Intune.configure({
   authority:   cfg.aadAuthority,
   redirectUri: cfg.aadRedirectUri,
 });
+// Rejects with E_PLIST_CONFLICT on iOS if your Info.plist also hardcodes an
+// ADALClientId / ADALAuthority / ADALRedirectUri under IntuneMAMSettings. That
+// combination is a known cause of enrollment failing with AuthRequired, so it is
+// refused up front rather than left to fail in a tenant you cannot reach.
 
 // 2. Let the module clean up your local data during a reset
 Intune.setResetHandler(async () => {

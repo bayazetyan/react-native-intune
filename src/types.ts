@@ -288,4 +288,12 @@ export type IntuneErrorCode =
   | 'E_RESET_IN_PROGRESS'
   | 'E_ALREADY_ENROLLED'
   | 'E_NOT_NEEDED'
+  /**
+   * `configure()` disagrees with the host app's Info.plist. iOS only. Raised for a
+   * hardcoded `ADAL*` identity key next to a runtime override (the known cause of
+   * enrollment failing with `AuthRequired`), or for a `keychainGroupOverride` /
+   * `maxFileProtectionLevel` that the plist does not match — neither of those two has a
+   * runtime setter, so the module can only refuse to let them disagree.
+   */
+  | 'E_PLIST_CONFLICT'
   | 'E_NATIVE';
