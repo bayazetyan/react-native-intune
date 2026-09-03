@@ -1,57 +1,111 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import {
-  getBrokerStatus,
-  getState,
-  isSupported,
-  onWipeRequested,
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Intune, {
   type BrokerStatus,
+  type Diagnostics,
   type IntuneState,
 } from 'react-native-intune';
 
 /**
- * Smoke screen for the calls that need neither a tenant nor an enrolled account.
+ * Smoke screen for everything that works without a tenant.
  *
- * `getState()` is expected to reject with `E_NOT_CONFIGURED` until `configure()` has
- * run — seeing that code here is the error path working, not a defect.
+ * The placeholder GUIDs below are deliberately fake. `configure()` only installs the
+ * runtime overrides and the SDK delegates — it does not contact the service — so it
+ * succeeds or fails on local configuration alone, which is exactly what is worth
+ * exercising here. Anything that needs the service is a tenant test, not this.
  */
+const PLACEHOLDER_TENANT = '00000000-0000-0000-0000-0000000000t1';
+const PLACEHOLDER_CLIENT = '00000000-0000-0000-0000-0000000000c1';
+
 export default function App() {
-  const [supported, setSupported] = useState<string>('…');
+  const [supported, setSupported] = useState('…');
   const [broker, setBroker] = useState<BrokerStatus | null>(null);
   const [state, setState] = useState<IntuneState | null>(null);
-  const [stateError, setStateError] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
+  const [configureResult, setConfigureResult] = useState('not called');
+
+  const refresh = useCallback(async () => {
+    try {
+      setState(await Intune.getState());
+    } catch (e) {
+      setConfigureResult(`getState: ${describe(e)}`);
+    }
+    try {
+      setDiagnostics(await Intune.getDiagnostics());
+    } catch {
+      setDiagnostics(null);
+    }
+  }, []);
+
+  const runConfigure = useCallback(async () => {
+    setConfigureResult('…');
+    try {
+      await Intune.configure({
+        clientId: PLACEHOLDER_CLIENT,
+        tenantId: PLACEHOLDER_TENANT,
+        authority: `https://login.microsoftonline.com/${PLACEHOLDER_TENANT}`,
+        redirectUri: 'msauth.intune.example://auth',
+        verboseLogging: true,
+      });
+      setConfigureResult('resolved');
+    } catch (e) {
+      setConfigureResult(describe(e));
+    }
+    await refresh();
+  }, [refresh]);
+
+  /** Must reject with E_RESET_REQUIRED — silently reconfiguring would leave the old
+   * tenant enrolled. */
+  const runTenantSwitch = useCallback(async () => {
+    setConfigureResult('…');
+    try {
+      await Intune.configure({
+        clientId: PLACEHOLDER_CLIENT,
+        tenantId: '00000000-0000-0000-0000-0000000000t2',
+        authority: 'https://login.microsoftonline.com/other',
+        redirectUri: 'msauth.intune.example://auth',
+      });
+      setConfigureResult('resolved (expected E_RESET_REQUIRED!)');
+    } catch (e) {
+      setConfigureResult(describe(e));
+    }
+    await refresh();
+  }, [refresh]);
 
   useEffect(() => {
     // Subscribed before anything else is called: a service-initiated wipe can arrive
     // with no prior app call at all (SPEC §4.4).
-    const sub = onWipeRequested(({ accountId }) => {
-      console.log('wipeRequested', accountId);
-    });
+    const subs = [
+      Intune.onWipeRequested(({ accountId }) =>
+        console.log('wipeRequested', accountId)
+      ),
+      Intune.onEnrollmentResult((r) =>
+        console.log('enrollmentResult', r.status)
+      ),
+      Intune.onPolicyChanged(() => console.log('policyChanged')),
+      Intune.onRestartRequired(({ reason }) =>
+        console.log('restartRequired', reason)
+      ),
+    ];
 
     const load = async () => {
       try {
-        setSupported(String(await isSupported()));
+        setSupported(String(await Intune.isSupported()));
       } catch (e) {
         setSupported(describe(e));
       }
-
       try {
-        setBroker(await getBrokerStatus());
-      } catch (e) {
-        setStateError(describe(e));
+        setBroker(await Intune.getBrokerStatus());
+      } catch {
+        setBroker(null);
       }
-
-      try {
-        setState(await getState());
-      } catch (e) {
-        setStateError(describe(e));
-      }
+      await refresh();
     };
 
     load().catch(() => {});
 
-    return () => sub.remove();
-  }, []);
+    return () => subs.forEach((s) => s.remove());
+  }, [refresh]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -77,8 +131,14 @@ export default function App() {
         </>
       )}
 
+      <Text style={styles.section}>configure</Text>
+      <Row label="result" value={configureResult} />
+      <View style={styles.buttons}>
+        <Button label="configure" onPress={runConfigure} />
+        <Button label="switch tenant" onPress={runTenantSwitch} />
+      </View>
+
       <Text style={styles.section}>getState</Text>
-      {stateError !== null && <Row label="error" value={stateError} />}
       {state !== null && (
         <>
           <Row label="configured" value={String(state.configured)} />
@@ -87,6 +147,15 @@ export default function App() {
           <Row label="status" value={state.status ?? '—'} />
           <Row label="pendingReset" value={state.pendingReset ?? '—'} />
         </>
+      )}
+
+      <Text style={styles.section}>getDiagnostics</Text>
+      {diagnostics === null ? (
+        <Row label="" value="—" />
+      ) : (
+        Object.entries(diagnostics).map(([k, v]) => (
+          <Row key={k} label={k} value={v === '' ? '—' : v} />
+        ))
       )}
     </ScrollView>
   );
@@ -108,10 +177,19 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+function Button({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable style={styles.button} onPress={onPress}>
+      <Text style={styles.buttonLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     padding: 24,
-    paddingTop: 72,
+    paddingTop: 64,
+    paddingBottom: 48,
     gap: 4,
   },
   heading: {
@@ -135,6 +213,19 @@ const styles = StyleSheet.create({
   value: {
     flexShrink: 1,
     textAlign: 'right',
-    fontVariant: ['tabular-nums'],
+  },
+  buttons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  button: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: '#e5e5ea',
+  },
+  buttonLabel: {
+    fontWeight: '600',
   },
 });

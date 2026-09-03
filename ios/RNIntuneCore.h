@@ -19,6 +19,8 @@ extern NSString *const RNIntuneErrorInvalidAccountId;
 extern NSString *const RNIntuneErrorNotNeeded;
 extern NSString *const RNIntuneErrorExternalAuthMode;
 extern NSString *const RNIntuneErrorNative;
+/// Raised by the configure-time assertions below. Not in SPEC §13.6 yet — see §12.7 S1.
+extern NSString *const RNIntuneErrorPlistConflict;
 
 /// Event names. Must match the `IntuneEvents` keys in src/types.ts.
 extern NSString *const RNIntuneEventEnrollmentResult;
@@ -48,16 +50,19 @@ extern NSString *const RNIntuneEventBrokerStatusChanged;
 
 + (instancetype)shared;
 
-/// YES when the MAM SDK is actually linked into the binary. Checked by class lookup so
-/// this file needs no SDK import, and so a misbuilt binary degrades instead of crashing.
+/// Set once, before configure. Publishes SDK events to JS.
+- (void)setEventSink:(void (^)(NSString *event, NSDictionary *body))sink;
+
+/// YES when the MAM SDK is actually linked into the binary. Checked by class lookup so a
+/// misbuilt binary degrades instead of crashing.
 @property (nonatomic, readonly) BOOL sdkAvailable;
 
 @property (nonatomic, readonly, getter=isConfigured) BOOL configured;
 @property (nonatomic, readonly, nullable) NSString *configuredTenantId;
 
-/// Returns NO and fills `error` when the tenant differs from the active one
-/// (`E_RESET_REQUIRED`) or the SDK is missing — switching tenants needs an explicit
-/// reset, because silently reconfiguring would leave the old tenant enrolled.
+/// Applies the runtime overrides, installs the delegates, and runs the configure-time
+/// assertions. Returns NO and fills `error` on `E_RESET_REQUIRED` (different tenant),
+/// `E_SDK_UNAVAILABLE`, or `E_PLIST_CONFLICT`.
 - (BOOL)applyConfig:(RNIntuneConfig *)config error:(NSError *_Nullable *_Nullable)error;
 
 /// BrokerStatus (SPEC §13.1). Answerable before `configure`, on purpose: the app needs
