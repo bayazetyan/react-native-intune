@@ -33,6 +33,18 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<!--
+		Without these, iOS answers NO to canOpenURL regardless of what is installed, so
+		getBrokerStatus() reports a broker as absent and MSAL silently falls back to a
+		web view - losing the broker, and with it MAM enrollment (SPEC 5.1.2).
+		msauthv2/msauthv3 are what MSAL itself checks for Authenticator.
+		-->
+		<string>msauthv2</string>
+		<string>msauthv3</string>
+		<string>companyportal</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>RCTNewArchEnabled</key>
