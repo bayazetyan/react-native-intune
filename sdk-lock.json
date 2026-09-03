@@ -1,0 +1,27 @@
+{
+  "ios": {
+    "repo": "microsoftconnect/ms-intune-app-sdk-ios",
+    "tag": "21.8.0",
+    "fetchedAt": "2026-09-03T10:39:33.572Z",
+    "files": {
+      "ios/IntuneMAMSwift.xcframework": "f38f0f130bd2adf0dd936acb26958f6c6ebc0b2d5a4bf886d4c8c7d4ae0870ab",
+      "ios/IntuneMAMSwiftStub.xcframework": "a03e563feec36f719bfca34b061e590e1c54a03650a3855a8298988e49b9ea9c",
+      "ios/IntuneMAMTelemetry.xcframework": "d4582c8ffa014611cb1c10b5717cf13cdbeeb50e34b67624dc884e194636b3de",
+      "ios/IntuneMAMResources.bundle": "51d6f666efb80eddb6d35467c9d6491b746405a72c8ebe6cde5de5c68e7181f3",
+      "ios/IntuneMAMConfigurator.dmg": "4fc4fbcd6211e62fa355ef1976970e230d806855703f75788727d5dbcb454b61",
+      "ios/REDIST.txt": "31c5b0e0c3ee48b60c6f12e56d5a8b6d47754f127750f27627800d2b44b79e56",
+      "ios/Microsoft License Terms Intune App SDK for iOS.pdf": "5b12b9a6ee3671a138b67884ff69c5bda17b6cb7bec0646f108cf072930c7394",
+      "ios/ThirdPartyNotices.txt": "aa0bbc665cfd7b7549b05c3bd747faa5d383c1ea4a297fb4dc33184180e3663f"
+    }
+  },
+  "android": {
+    "repo": "microsoftconnect/ms-intune-app-sdk-android",
+    "tag": "12.4.0",
+    "fetchedAt": "2026-09-03T10:39:50.835Z",
+    "files": {
+      "android/Microsoft.Intune.MAM.SDK.aar": "b7e5d0bb86d18f054d8901f168f82e64c79a57334fbb6227136b108b0514e998",
+      "android/GradlePlugin/com.microsoft.intune.mam.build.jar": "04ae1e0fbb6b5dfcbf8bd42e8d4f41ad758332ee6c238780a764a9ab1b67446d",
+      "android/Microsoft License Terms Intune App SDK for Android.pdf": "5f1000c547c38f94cd6791dcd6e1c032ab2c55e2c28f9c5cf75e6e039f0267a2"
+    }
+  }
+}

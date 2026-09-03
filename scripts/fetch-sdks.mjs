@@ -63,12 +63,16 @@ const QUIET = has('--quiet') || process.env.npm_config_loglevel === 'silent';
 const log = (...m) => !QUIET && console.log('[react-native-intune]', ...m);
 const warn = (...m) => console.warn('[react-native-intune]', ...m);
 
-const LICENCE_NOTICE = `
+/**
+ * Built from the repositories actually being downloaded, not hardcoded: a licence notice
+ * that points somewhere other than the source of the bytes is worse than no notice.
+ */
+const licenceNotice = (cfg) => `
   The Microsoft Intune App SDK is a Microsoft product, licensed by Microsoft under its
   own terms. This library neither includes nor relicenses it, and downloading it here
   does not grant you any rights to it. Review and accept Microsoft's terms before use:
-    iOS      https://github.com/msintuneappsdk/ms-intune-app-sdk-ios
-    Android  https://github.com/microsoftconnect/ms-intune-app-sdk-android
+    iOS      https://github.com/${cfg.ios.repo}
+    Android  https://github.com/${cfg.android.repo}
 `;
 
 // ---------------------------------------------------------------- helpers
@@ -407,7 +411,7 @@ async function main() {
 
   // Only iOS artifacts are needed on a machine that cannot build for iOS anyway,
   // but fetching both keeps the lockfile meaningful and the download is one-time.
-  if (!QUIET && !PRINT_LAYOUT) console.log(LICENCE_NOTICE);
+  if (!QUIET && !PRINT_LAYOUT) console.log(licenceNotice(cfg));
 
   for (const name of platforms) {
     const result = await fetchPlatform(name, cfg, lock);
