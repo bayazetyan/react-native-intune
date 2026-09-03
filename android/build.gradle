@@ -1,6 +1,10 @@
 buildscript {
+  // The MAM SDK compatibility matrix (SPEC §6.1) is tested as whole rows, not as a
+  // mix. The pinned Android tag in sdk-lock.json is 12.4.0, so this is the 12.0.0
+  // row: Android 16 (compileSdk 36), Gradle 8.11.1, AGP 8.9.1, Kotlin 2.1.21, Java 17.
+  // Mirrored in sdk-versions.json -> toolchain.requires; change both together.
   ext.Intune = [
-    kotlinVersion: "2.0.21",
+    kotlinVersion: "2.1.21",
     minSdkVersion: 24,
     compileSdkVersion: 36
   ]
@@ -15,11 +19,12 @@ buildscript {
 
   repositories {
     google()
+    // Not jcenter(), which Microsoft's docs still reference — it is read-only/retired.
     mavenCentral()
   }
 
   dependencies {
-    classpath "com.android.tools.build:gradle:8.7.2"
+    classpath "com.android.tools.build:gradle:8.9.1"
     // noinspection DifferentKotlinGradleVersion
     classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
   }
@@ -30,6 +35,11 @@ apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 apply plugin: "com.facebook.react"
+
+// The MAM Gradle plugin ("com.microsoft.intune.mam") is deliberately NOT applied here.
+// It rewrites bytecode across the whole application and every one of its dependencies,
+// so it belongs in the consumer's app module. Applying it in this library would rewrite
+// only the library, build successfully, and protect nothing — the worst kind of failure.
 
 android {
   namespace "com.reactnativeintune"
@@ -44,8 +54,41 @@ android {
     sourceCompatibility JavaVersion.VERSION_17
     targetCompatibility JavaVersion.VERSION_17
   }
+
+  kotlinOptions {
+    jvmTarget = "17"
+  }
+}
+
+// Fetched by scripts/fetch-sdks.mjs into a gitignored vendor/ (SPEC §2.1).
+//
+// Resolved from projectDir, NOT rootDir. SPEC §12.3 and TODO.md both write
+// "$rootDir/../vendor/...", but when this library is autolinked, rootDir is the
+// *consumer app's* android/ directory — that path would point at <app>/vendor and
+// never resolve. projectDir is this library's own android/ folder, so ../vendor is
+// the package root where fetch-sdks writes.
+def mamAar = file("$projectDir/../vendor/android/Microsoft.Intune.MAM.SDK.aar")
+
+// Parallel to the raise in RNIntune.podspec: fail with an instruction rather than an
+// unresolved-symbol error deep in the Kotlin compile. Scoped to graphs that actually
+// compile this library, so `clean` and unrelated tasks are not blocked by a missing
+// download.
+gradle.taskGraph.whenReady { graph ->
+  if (mamAar.exists()) return
+  def compiling = graph.allTasks.any {
+    it.project == project && it.name.startsWith("compile")
+  }
+  if (compiling) {
+    throw new GradleException(
+      "[react-native-intune] The Microsoft Intune App SDK is missing from vendor/android.\n" +
+      "  Expected: ${mamAar}\n" +
+      "  Run: node node_modules/react-native-intune/scripts/fetch-sdks.mjs"
+    )
+  }
 }
 
 dependencies {
   implementation "com.facebook.react:react-android"
+
+  implementation files(mamAar)
 }
