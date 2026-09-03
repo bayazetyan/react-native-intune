@@ -1,16 +1,15 @@
-package com.intune
+package com.reactnativeintune
 
 import com.facebook.react.BaseReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
-import java.util.HashMap
 
-class IntunePackage : BaseReactPackage() {
+class RNIntunePackage : BaseReactPackage() {
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
-    return if (name == IntuneModule.NAME) {
-      IntuneModule(reactContext)
+    return if (name == RNIntuneModule.NAME) {
+      RNIntuneModule(reactContext)
     } else {
       null
     }
@@ -18,10 +17,13 @@ class IntunePackage : BaseReactPackage() {
 
   override fun getReactModuleInfoProvider() = ReactModuleInfoProvider {
     mapOf(
-      IntuneModule.NAME to ReactModuleInfo(
-        name = IntuneModule.NAME,
-        className = IntuneModule.NAME,
+      RNIntuneModule.NAME to ReactModuleInfo(
+        name = RNIntuneModule.NAME,
+        className = RNIntuneModule.NAME,
         canOverrideExistingModule = false,
+        // The event emitter must be live from construction, not from the first
+        // enroll() — a service-initiated wipe can arrive before JS calls anything
+        // (SPEC §4.4, §12.4). Revisit this flag when the emitter lands.
         needsEagerInit = false,
         isCxxModule = false,
         isTurboModule = true
