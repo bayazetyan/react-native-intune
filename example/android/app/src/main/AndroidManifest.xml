@@ -2,6 +2,19 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+    Mandatory on Android 11+. Without it, getBrokerStatus() reports Company Portal as
+    absent even when installed, and MSAL silently falls back to a browser instead of the
+    broker - so brokered auth "just doesn't work" with no error (SPEC 6.2).
+    The MAM SDK's own AAR already declares the Company Portal entry; these are the MSAL
+    broker apps.
+    -->
+    <queries>
+        <package android:name="com.microsoft.windowsintune.companyportal" />
+        <package android:name="com.azure.authenticator" />
+        <package android:name="com.microsoft.workaccount" />
+    </queries>
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"

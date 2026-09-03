@@ -310,8 +310,9 @@ async function reconcile() {
 | Status | What it means | What your app must do |
 |---|---|---|
 | `succeeded` | Policy applied | Proceed |
-| `notLicensed` | No Intune licence, or the MAM service was unreachable | **Do not block the user.** Continue unmanaged; the SDK retries periodically in case a licence appears later |
-| `failed` | The account *is* licensed but enrollment failed | **Block access to corporate data** until `succeeded` |
+| `notLicensed` | The tenant is MAM-enabled but the account has no Intune licence | **Do not block the user.** Continue unmanaged; the SDK retries periodically in case a licence appears later |
+| `notTargeted` | Licensed, but no App Protection Policy targets this account | **Do not block the user.** Nothing is meant to be enforced yet — an admin has not targeted them |
+| `failed` | The account *is* licensed and targeted, but enrollment failed — including the MAM service being unreachable | **Block access to corporate data** until `succeeded` |
 | `pending` | First attempt in progress | You may block with a progress state |
 | `companyPortalRequired` | Android, broker missing | The SDK drives the install prompt; supplement with your own copy |
 | `wrongUser` | Another account is already enrolled | Block access to this account's data; the SDK prompts the user to remove one |
@@ -319,7 +320,9 @@ async function reconcile() {
 | `unenrolled` / `unenrollmentFailed` | Terminal states of a reset | Handled by the reset flow |
 | `unknown` | An SDK status this version doesn't map | Treat conservatively; please open an issue |
 
-> **The most common integration bug in libraries like this one** is treating anything that isn't `succeeded` as "block the user". That breaks every customer who has staff without Intune licences. `notLicensed` and `failed` mean opposite things — this distinction is prescribed by Microsoft, not invented here.
+> **The most common integration bug in libraries like this one** is treating anything that isn't `succeeded` as "block the user". That breaks every customer who has staff without Intune licences, and every pilot where the policy has not been targeted yet. `notLicensed` and `notTargeted` mean the opposite of `failed` — that distinction is prescribed by Microsoft, not invented here.
+>
+> `enrollment.nativeCode` carries the raw SDK constant name (`LicensedNotTargeted`, `AccountNotLicensed`, `EnrollmentEndPointNetworkFailure`, …). Put it in your support logs: it is the difference between "unlicensed" and "licensed but untargeted", which look identical from the unified status alone.
 
 ---
 
