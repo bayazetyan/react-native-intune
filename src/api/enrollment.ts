@@ -10,6 +10,7 @@ import NativeIntune from '../NativeIntune';
 import { assertAccountId } from '../internal/errors';
 import { toEnrollmentResult, toIntuneState } from '../internal/decode';
 import type {
+  EnrollInteractiveParams,
   EnrollmentResult,
   EnrollParams,
   IntuneState,
@@ -49,6 +50,24 @@ export async function enroll(params: EnrollParams): Promise<EnrollmentResult> {
       accountId: params.accountId,
       upn: params.upn ?? '',
     })
+  );
+}
+
+/**
+ * **iOS only.** Hands the whole sign-in to the SDK: it shows its own credential screen,
+ * signs the user in, and enrolls them. No MSAL on our side, which is why this works
+ * before the built-in auth layer exists.
+ *
+ * Rejects with `E_SDK_UNAVAILABLE` on Android — `registerAccountForMAM` there always
+ * needs a token supplied by the app, so there is nothing equivalent to call.
+ *
+ * Like `enroll`, it resolves with a result for every outcome including failures.
+ */
+export async function enrollInteractive(
+  params: EnrollInteractiveParams = {}
+): Promise<EnrollmentResult> {
+  return toEnrollmentResult(
+    await NativeIntune.enrollInteractive({ upn: params.upn ?? '' })
   );
 }
 

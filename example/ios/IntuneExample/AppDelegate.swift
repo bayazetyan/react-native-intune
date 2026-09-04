@@ -1,4 +1,5 @@
 import UIKit
+import MSAL
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
@@ -30,6 +31,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     )
 
     return true
+  }
+
+  /// Hands the sign-in result back to MSAL.
+  ///
+  /// Without this the redirect arrives at the app and stops there: MSAL never learns the
+  /// login finished, so it opens the login screen again, and again. The symptom is a
+  /// loop with no error message anywhere.
+  ///
+  /// This is host-app code the module cannot write for you — it lives in your
+  /// AppDelegate (SPEC §5.1.2). It is needed even when the Intune SDK is the one driving
+  /// the sign-in, because the SDK drives *your* MSAL rather than carrying its own.
+  func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    MSALPublicClientApplication.handleMSALResponse(
+      url,
+      sourceApplication: options[.sourceApplication] as? String
+    )
   }
 }
 

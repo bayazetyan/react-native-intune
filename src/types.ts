@@ -179,6 +179,14 @@ export type EnrollParams = {
   upn?: string;
 };
 
+export type EnrollInteractiveParams = {
+  /**
+   * The account's UPN. Leave unset to let the SDK ask for it — it shows its own sign-in
+   * screen either way.
+   */
+  upn?: string;
+};
+
 export type SignOutParams = {
   accountId: string;
   /** Also runs the full reset sequence. On Android the process may terminate. */

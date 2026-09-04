@@ -120,6 +120,10 @@ extern NSString *const RNIntuneEventBrokerStatusChanged;
 /// journal open when it is not, so the next launch retries rather than declaring success.
 - (BOOL)completeReset;
 
+/// iOS-only interactive enrollment: the SDK runs the sign-in and shows its own UI.
+- (void)enrollInteractiveWithUpn:(nullable NSString *)upn
+                      completion:(void (^)(NSDictionary<NSString *, id> *result))completion;
+
 #pragma mark - Token bridge (SPEC §13.4)
 
 /// Answers a pending `tokenRequest`. The token goes to the SDK and never back to JS.

@@ -291,6 +291,20 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
     completion?.invoke(result)
   }
 
+  /**
+   * iOS-only. `loginAndEnrollAccount:` has no Android counterpart —
+   * `registerAccountForMAM` always needs a token supplied by the app, so there is
+   * nothing here that can run a sign-in on the SDK's behalf.
+   */
+  override fun enrollInteractive(params: ReadableMap, promise: Promise) {
+    promise.reject(
+      ERR_SDK_UNAVAILABLE,
+      "enrollInteractive() is iOS-only. On Android the SDK cannot run the sign-in " +
+        "itself: registerAccountForMAM needs a token from the app, so use enroll() with " +
+        "a token provider.",
+    )
+  }
+
   override fun getState(promise: Promise) {
     // Deliberately never rejects: reporting `configured: false` is what makes this the
     // reconciliation primitive (SPEC §13.2).

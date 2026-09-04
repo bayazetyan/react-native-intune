@@ -31,6 +31,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)awaitEnrollment:(NSString *)accountId
              completion:(void (^)(NSDictionary<NSString *, id> *result))completion;
 
+/**
+ * Interactive enrollment, which cannot be keyed by account ID — the caller only has a
+ * UPN, and the SDK reports the object ID. Only one can be in flight because the SDK is
+ * showing a modal sign-in screen, so a single slot is enough.
+ */
+- (void)awaitInteractiveEnrollmentWithUpn:(nullable NSString *)upn
+                               completion:(void (^)(NSDictionary<NSString *, id> *result))completion;
+
 /// Called for every delegate event; settles a waiting caller when one matches.
 - (void)settleForEvent:(NSString *)event body:(NSDictionary *)body;
 
