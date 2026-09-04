@@ -19,6 +19,8 @@ extern NSString *const RNIntuneErrorInvalidAccountId;
 extern NSString *const RNIntuneErrorNotNeeded;
 extern NSString *const RNIntuneErrorExternalAuthMode;
 extern NSString *const RNIntuneErrorNative;
+extern NSString *const RNIntuneErrorTokenProviderFailed;
+extern NSString *const RNIntuneErrorTokenProviderMissing;
 /// Raised by the configure-time assertions below. Not in SPEC §13.6 yet — see §12.7 S1.
 extern NSString *const RNIntuneErrorPlistConflict;
 
@@ -75,6 +77,29 @@ extern NSString *const RNIntuneEventBrokerStatusChanged;
 
 /// Diagnostics (SPEC §13.3). No tokens, no UPNs — safe to attach to a support ticket.
 - (NSDictionary<NSString *, NSString *> *)diagnostics;
+
+#pragma mark - Enrollment
+
+/**
+ * Registers and enrolls the account, completing with an `EnrollmentResult`.
+ *
+ * `registerAndEnrollAccountId:` returns immediately and says nothing; the outcome arrives
+ * later on `enrollmentRequestWithStatus:`. So the completion is held against the account
+ * ID and fired from the delegate (SPEC §12.5) — never from the call returning.
+ *
+ * Completes for every outcome, including failures: a non-success status is data, not an
+ * error. If the SDK says nothing at all within the timeout it completes with `pending`,
+ * which is truthful — the SDK keeps retrying on its own schedule and the result will
+ * still arrive as an event.
+ */
+- (void)enrollAccountId:(NSString *)accountId
+             completion:(void (^)(NSDictionary<NSString *, id> *result))completion;
+
+#pragma mark - Token bridge (SPEC §13.4)
+
+/// Answers a pending `tokenRequest`. The token goes to the SDK and never back to JS.
+- (void)resolveTokenRequest:(NSString *)requestId token:(NSString *)token;
+- (void)rejectTokenRequest:(NSString *)requestId reason:(NSString *)reason;
 
 /// Builds an NSError carrying one of the stable codes above.
 + (NSError *)errorWithCode:(NSString *)code message:(NSString *)message;

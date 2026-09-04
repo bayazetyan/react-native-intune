@@ -17,9 +17,26 @@ NS_ASSUME_NONNULL_BEGIN
 /// Emits one event to JS. Implementations must marshal to the JS thread themselves.
 typedef void (^RNIntuneEventSink)(NSString *event, NSDictionary *body);
 
+/// Answers a token request with an access token, or with a reason it could not be got.
+typedef void (^RNIntuneTokenCompletion)(NSString *_Nullable token,
+                                        NSString *_Nullable failureReason);
+
+/**
+ * Asks whoever owns MSAL for a MAM service token.
+ *
+ * The SDK requests this while enrolling, and again on its own retry schedule with no JS
+ * call in flight, which is why it is a registered hook rather than a parameter on
+ * `enroll` (SPEC §13.4).
+ */
+typedef void (^RNIntuneTokenRequestHandler)(NSString *accountId,
+                                            NSString *resource,
+                                            RNIntuneTokenCompletion completion);
+
 @interface RNIntuneDelegates : NSObject <IntuneMAMEnrollmentDelegate, IntuneMAMPolicyDelegate>
 
-- (instancetype)initWithEventSink:(RNIntuneEventSink)sink NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithEventSink:(RNIntuneEventSink)sink
+              tokenRequestHandler:(RNIntuneTokenRequestHandler)tokenHandler
+    NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
 /// Mirrors `restartHandledByApp` from `configure`. Decides the return value of

@@ -190,7 +190,25 @@ RCT_EXPORT_MODULE(RNIntune)
        resolve:(RCTPromiseResolveBlock)resolve
         reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"enroll");
+  if (!RNIntuneCore.shared.isConfigured) {
+    RNIntuneRejectNotConfigured(reject, @"enroll");
+    return;
+  }
+
+  NSString *accountId = params.accountId();
+  if (accountId.length == 0) {
+    RNIntuneReject(reject,
+                   [RNIntuneCore errorWithCode:RNIntuneErrorInvalidAccountId
+                                       message:@"enroll() requires an Entra object ID."]);
+    return;
+  }
+
+  // Resolves for every outcome including failures — a non-success status is data, not an
+  // exception (SPEC §13.2). It only rejects for the programming errors above.
+  [RNIntuneCore.shared enrollAccountId:accountId
+                            completion:^(NSDictionary<NSString *, id> *result) {
+                              resolve(result);
+                            }];
 }
 
 - (void)getState:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
@@ -222,15 +240,16 @@ RCT_EXPORT_MODULE(RNIntune)
 
 #pragma mark - Token provider
 
+// Not public API — setTokenProvider in index.ts wraps these. The token goes straight to
+// the SDK and is never logged or returned to JS (CLAUDE.md rule 9).
 - (void)resolveToken:(JS::NativeIntune::SpecResolveTokenParams &)params
 {
-  // The MAM service token never crosses back out to JS and is never logged
-  // (CLAUDE.md rule 9). Wiring lands with the Android auth callback in SPEC §13.4;
-  // on iOS the equivalent is getAccessTokenForAccountId:resource:completion:.
+  [RNIntuneCore.shared resolveTokenRequest:params.requestId() token:params.token()];
 }
 
 - (void)rejectToken:(JS::NativeIntune::SpecRejectTokenParams &)params
 {
+  [RNIntuneCore.shared rejectTokenRequest:params.requestId() reason:params.reason()];
 }
 
 #pragma mark - TurboModule

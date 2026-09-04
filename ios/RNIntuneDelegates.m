@@ -18,12 +18,15 @@ static NSString *const kUnknown = @"unknown";
 
 @implementation RNIntuneDelegates {
   RNIntuneEventSink _sink;
+  RNIntuneTokenRequestHandler _tokenHandler;
 }
 
 - (instancetype)initWithEventSink:(RNIntuneEventSink)sink
+              tokenRequestHandler:(RNIntuneTokenRequestHandler)tokenHandler
 {
   if ((self = [super init])) {
     _sink = [sink copy];
+    _tokenHandler = [tokenHandler copy];
     _restartHandledByApp = NO;
   }
   return self;
@@ -193,6 +196,34 @@ static NSString *const kUnknown = @"unknown";
 - (void)unenrollRequestWithStatus:(IntuneMAMEnrollmentStatus *)status
 {
   _sink(RNIntuneEventUnenrollmentResult, [RNIntuneDelegates resultFromStatus:status]);
+}
+
+/**
+ * The SDK asking for a MAM service token. This is the iOS counterpart of Android's
+ * MAMServiceAuthenticationCallback.
+ *
+ * Unlike Android's, this one is asynchronous — the SDK hands us a completion block — so
+ * nothing here blocks a thread while JS thinks. The token goes straight back to the SDK
+ * and is never returned to JS or logged (CLAUDE.md rule 9).
+ */
+- (void)getAccessTokenForAccountId:(NSString *)oid
+                          resource:(NSString *)resource
+                        completion:(void (^)(IntuneMAMEnrollmentToken *))completion
+{
+  _tokenHandler(oid, resource, ^(NSString *_Nullable token, NSString *_Nullable reason) {
+    IntuneMAMEnrollmentToken *result = [IntuneMAMEnrollmentToken new];
+    if (token.length > 0) {
+      result.accessToken = token;
+      result.oid = oid;
+    } else {
+      // The header is explicit that `error` is required when no token is returned.
+      // Without it the SDK cannot distinguish "no token" from a malformed reply.
+      result.error = [RNIntuneCore
+          errorWithCode:RNIntuneErrorTokenProviderFailed
+                message:reason.length > 0 ? reason : @"No MAM service token was provided"];
+    }
+    completion(result);
+  });
 }
 
 #pragma mark - IntuneMAMPolicyDelegate

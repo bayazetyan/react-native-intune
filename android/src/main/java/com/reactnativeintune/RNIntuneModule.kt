@@ -6,6 +6,8 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.microsoft.intune.mam.client.app.MAMComponents
 import com.microsoft.intune.mam.client.strict.MAMStrictMode
@@ -42,6 +44,11 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
    */
   private var registeredAccountId: String? = null
 
+  /** accountId -> completion, settled from the notification receiver. */
+  private val pendingEnrollments = mutableMapOf<String, (WritableMap) -> Unit>()
+
+  private val timeoutHandler = Handler(Looper.getMainLooper())
+
   /** Resolved configuration. `index.ts` applies every default, so nothing is optional. */
   private data class Config(
     val clientId: String,
@@ -55,6 +62,20 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
   )
 
   // ------------------------------------------------------------------ lifecycle
+
+  init {
+    // The callback object outlives any single React context — it is registered from
+    // Application.onMAMCreate — so it is pointed at whichever module instance is live.
+    RNIntuneAuthCallback.attach(this)
+  }
+
+  override fun invalidate() {
+    RNIntuneAuthCallback.detach(this)
+    timeoutHandler.removeCallbacksAndMessages(null)
+    RNIntuneNotifications.unregister(registrations)
+    registrations = emptyList()
+    super.invalidate()
+  }
 
   override fun configure(config: ReadableMap, promise: Promise) {
     if (!sdkAvailable) {
@@ -165,7 +186,101 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
 
   // ------------------------------------------------------------------ enrollment
 
-  override fun enroll(params: ReadableMap, promise: Promise) = notConfigured("enroll", promise)
+  override fun enroll(params: ReadableMap, promise: Promise) {
+    val config = this.config
+    if (config == null) {
+      notConfigured("enroll", promise)
+      return
+    }
+
+    val accountId = params.getString("accountId").orEmpty()
+    if (accountId.isEmpty()) {
+      promise.reject(ERR_INVALID_ACCOUNT_ID, "enroll() requires an Entra object ID.")
+      return
+    }
+
+    // registerAccountForMAM(upn, aadId, tenantId, authority) — parameter order verified
+    // from bytecode, not documentation: the offline implementation forwards them to
+    // MAMIdentityManager.insertOrUpdate(aadId, upn, tenantId, authority), which in turn
+    // builds MAMIdentity(upn, aadId, authority, tenantId).
+    //
+    // The UPN is required and NonNull, and this module's public API deliberately takes
+    // only the Entra object ID (SPEC §13.2). Nothing can supply the UPN yet: in
+    // authMode 'builtin' it comes from the module's own MSAL sign-in, which is spike
+    // S-3. Rejecting here with a named code beats calling the SDK with a fabricated
+    // identity, which would register the wrong account.
+    val upn = knownUpnFor(accountId)
+    if (upn == null) {
+      promise.reject(
+        ERR_UPN_REQUIRED,
+        "Android enrollment needs the account's UPN as well as its object ID — " +
+          "MAMEnrollmentManager.registerAccountForMAM takes both, and the UPN is not " +
+          "optional. It will come from the module's own MSAL sign-in (SPEC §3, spike " +
+          "S-3); until then there is nothing to supply it. iOS is unaffected: " +
+          "registerAndEnrollAccountId takes the object ID alone.",
+      )
+      return
+    }
+
+    val manager = MAMComponents.get(MAMEnrollmentManager::class.java)
+    if (manager == null) {
+      promise.reject(
+        ERR_SDK_UNAVAILABLE,
+        "MAMEnrollmentManager is unavailable — the MAM Gradle plugin is almost " +
+          "certainly not applied to this app module.",
+      )
+      return
+    }
+
+    // Held against the account ID and settled from the notification receiver. The call
+    // below returns immediately and says nothing about the outcome (SPEC §12.5).
+    synchronized(pendingEnrollments) {
+      val existing = pendingEnrollments[accountId]
+      pendingEnrollments[accountId] = { result ->
+        existing?.invoke(result)
+        promise.resolve(result)
+      }
+    }
+
+    scheduleEnrollTimeout(accountId)
+
+    registeredAccountId = accountId
+    manager.registerAccountForMAM(upn, accountId, config.tenantId, config.authority)
+  }
+
+  /**
+   * The UPN for an object ID, once something knows it.
+   *
+   * Always null today. It becomes the MSAL account lookup in the auth slice; keeping the
+   * seam here means `enroll` does not change shape when that lands.
+   */
+  private fun knownUpnFor(@Suppress("UNUSED_PARAMETER") accountId: String): String? = null
+
+  private fun scheduleEnrollTimeout(accountId: String) {
+    timeoutHandler.postDelayed({
+      // Truthful rather than convenient: the SDK has not failed, it has not answered.
+      // It keeps retrying on its own schedule and the result still arrives as an event.
+      settleEnrollment(
+        accountId,
+        Arguments.createMap().apply {
+          putString("status", "pending")
+          putString("accountId", accountId)
+          putString("nativeCode", "RNIntuneTimeout")
+          putString(
+            "nativeMessage",
+            "The SDK did not report a result within the timeout. Enrollment continues " +
+              "in the background; watch onEnrollmentResult.",
+          )
+          putBoolean("restartRequired", false)
+        },
+      )
+    }, ENROLL_TIMEOUT_MS)
+  }
+
+  private fun settleEnrollment(accountId: String, result: WritableMap) {
+    val completion = synchronized(pendingEnrollments) { pendingEnrollments.remove(accountId) }
+    completion?.invoke(result)
+  }
 
   override fun getState(promise: Promise) {
     // Deliberately never rejects: reporting `configured: false` is what makes this the
@@ -245,9 +360,15 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
    * thread, including on its own retry schedule with no JS call in flight, so the
    * request has to be correlated by `requestId` rather than awaited inline.
    */
-  override fun resolveToken(params: ReadableMap) = Unit
+  override fun resolveToken(params: ReadableMap) {
+    val requestId = params.getString("requestId") ?: return
+    RNIntuneAuthCallback.resolve(requestId, params.getString("token").orEmpty())
+  }
 
-  override fun rejectToken(params: ReadableMap) = Unit
+  override fun rejectToken(params: ReadableMap) {
+    val requestId = params.getString("requestId") ?: return
+    RNIntuneAuthCallback.reject(requestId, params.getString("reason").orEmpty())
+  }
 
   // ------------------------------------------------------------------ events
 
@@ -260,8 +381,35 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
     listenerCount = (listenerCount - count.toInt()).coerceAtLeast(0)
   }
 
+  /** Called by the auth callback from the SDK's background thread. */
+  internal fun emitTokenRequest(
+    requestId: String,
+    resourceId: String,
+    accountId: String,
+    tenantId: String,
+    authority: String,
+  ) {
+    emit(
+      "tokenRequest",
+      Arguments.createMap().apply {
+        putString("requestId", requestId)
+        putString("resourceId", resourceId)
+        putString("accountId", accountId)
+        putString("tenantId", tenantId)
+        putString("authority", authority)
+      },
+    )
+  }
+
   /** Emits now if JS is listening, queues otherwise. */
   internal fun emit(event: String, payload: WritableMap) {
+    // Settle first, publish second. The same notification serves a caller waiting on
+    // enroll() and every subscriber — including for the SDK's own background retries,
+    // which have no caller at all (SPEC §13.5).
+    if (event == "enrollmentResult" || event == "unenrollmentResult") {
+      payload.getString("accountId")?.let { settleEnrollment(it, payload.copy()) }
+    }
+
     if (listenerCount == 0) {
       pendingEvents += event to payload
       return
@@ -348,5 +496,13 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
     private const val ERR_NOT_CONFIGURED = "E_NOT_CONFIGURED"
     private const val ERR_RESET_REQUIRED = "E_RESET_REQUIRED"
     private const val ERR_SDK_UNAVAILABLE = "E_SDK_UNAVAILABLE"
+    private const val ERR_INVALID_ACCOUNT_ID = "E_INVALID_ACCOUNT_ID"
+    private const val ERR_UPN_REQUIRED = "E_UPN_REQUIRED"
+
+    /**
+     * Generous on purpose: enrollment involves a token acquisition and a service round
+     * trip, and returning early would report a failure the SDK has not reached.
+     */
+    private const val ENROLL_TIMEOUT_MS = 90_000L
   }
 }

@@ -296,4 +296,11 @@ export type IntuneErrorCode =
    * runtime setter, so the module can only refuse to let them disagree.
    */
   | 'E_PLIST_CONFLICT'
+  /**
+   * Android only. `MAMEnrollmentManager.registerAccountForMAM` requires the account's
+   * UPN as well as its object ID, and nothing can supply it until the module's own MSAL
+   * sign-in lands (SPEC §3, spike S-3). iOS is unaffected —
+   * `registerAndEnrollAccountId:` takes the object ID alone.
+   */
+  | 'E_UPN_REQUIRED'
   | 'E_NATIVE';
