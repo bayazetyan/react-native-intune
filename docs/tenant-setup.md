@@ -172,10 +172,17 @@ Five minutes, and the single most common cause of a failed enrollment.
 3. Tick `DeviceManagementManagedApps.ReadWrite`, then **Add permissions**.
 4. Press **Grant admin consent for &lt;your tenant&gt;** and confirm.
 
-> **Grant consent even though the column says it is not required.** The *Admin consent
-> required* column shows **No** for this permission. Grant it anyway. Skipping this is
-> the most common reason an otherwise perfect integration returns `authorizationNeeded`
-> forever — and nothing in the error says why.
+> **Grant consent whatever the column says.** The *Admin consent required* column is not
+> a reliable signal: it shows the tenant's default, and Microsoft's own note on that
+> screen says it "may not reflect the value in your organization". It has been seen
+> reading both **Yes** and **No** for this permission. Grant consent either way.
+> Skipping it is the most common reason an otherwise perfect integration returns
+> `authorizationNeeded` forever — and nothing in the error says why.
+>
+> While you are on this screen: the API's identifier is shown as
+> `https://msmamservice.api.application`. That is the same MAM service resource the SDK
+> passes when it asks the app for a token, so it is a free confirmation that you picked
+> the right API.
 
 > **The API is missing from the list?** Then Intune is not provisioned in this tenant
 > yet. Go back to phase 00, make sure the subscription is active, give it a few minutes
