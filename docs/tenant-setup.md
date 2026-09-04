@@ -25,6 +25,34 @@ disagree, the spec is the contract and this is the procedure.
 
 ---
 
+## Who does this — you, or your customer?
+
+You are following this now against your own test tenant, where you play both roles. In
+production the work splits, and the split is not even.
+
+**Always the customer's, under any arrangement.** These live in their Entra and Intune
+tenants and cannot be done on their behalf:
+
+- **Phase 03** — Intune licences assigned to their people
+- **Phase 04** — App protection policies in their Intune, targeting your bundle ID
+- **Phase 05** — Company Portal on their devices
+
+**Never the customer's to invent.** The bundle ID `intune.example`, the signature hash and
+both redirect URIs are properties of the binary you ship. They are the same string for
+every customer. Where a customer types them, you supply them.
+
+**Phases 01–02 depend on an open decision** — `SPEC.md` §3.6, O-H. Either you hold one
+multi-tenant registration and the customer's admin only approves a consent link, or each
+customer creates their own registration and sends you the resulting `clientId` and
+`tenantId`. The module takes `clientId` at runtime either way, so this is a commercial
+question — whether your customers require the registration to sit in their own directory —
+rather than a technical one.
+
+Until it is answered, follow this runbook as written: it is the per-customer shape, which
+is the more demanding of the two.
+
+---
+
 ## 00 — Before you start
 
 Nothing below works without these three.
