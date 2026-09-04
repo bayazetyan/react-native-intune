@@ -159,7 +159,12 @@ export default function App() {
       } catch {
         setBroker(null);
       }
-      await refresh();
+
+      // Every launch, not once. The module holds the configuration in memory only, on
+      // purpose: a host app fetches it per customer at startup, so a tenant change takes
+      // effect on the next launch instead of leaving stale settings behind. This is also
+      // where the reconcile-at-launch pattern starts (SPEC §13.2).
+      await runConfigure();
     };
 
     load().catch(() => {});
@@ -169,7 +174,7 @@ export default function App() {
       Intune.setTokenProvider(null);
       Intune.setResetHandler(null);
     };
-  }, [refresh]);
+  }, [refresh, runConfigure]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
