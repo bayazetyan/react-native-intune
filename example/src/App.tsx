@@ -118,12 +118,17 @@ export default function App() {
     setEnrollResult('resetting…');
     try {
       await Intune.reset({ wipe: true, reason: 'support_reset' });
-      setEnrollResult('reset resolved');
+      setEnrollResult('reset resolved, reconfiguring…');
     } catch (e) {
       setEnrollResult(`reset: ${describe(e)}`);
     }
-    await refresh();
-  }, [refresh]);
+    // Runs even when reset rejected. A rejection means the journal stayed open, and the
+    // retry on the next configure is exactly what should happen.
+    await runConfigure();
+    setEnrollResult((prev) =>
+      prev === 'reset resolved, reconfiguring…' ? 'reset resolved' : prev
+    );
+  }, [runConfigure]);
 
   useEffect(() => {
     // Declines every request, on purpose. There is no tenant and no MSAL yet, so the
@@ -248,7 +253,12 @@ export default function App() {
 
       <Text style={styles.section}>getPolicy</Text>
       <View style={styles.buttons}>
-        <Button label="re-read policy" onPress={() => void refresh()} />
+        <Button
+          label="re-read policy"
+          onPress={() => {
+            refresh().catch(() => {});
+          }}
+        />
       </View>
       {policy === null ? (
         <Row label="" value="—" />
