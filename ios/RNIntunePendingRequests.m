@@ -26,6 +26,8 @@ static const NSTimeInterval RNIntuneTokenTimeout = 45.0;
   /// Guards both: callbacks arrive on threads the SDK chooses.
   NSLock *_lock;
   NSUInteger _requestCounter;
+  /// Single slot: the SDK's sign-in screen is modal, so only one can be waiting.
+  void (^_Nullable _pendingInteractive)(NSDictionary *);
 }
 
 - (instancetype)initWithEventSink:(RNIntuneEventSink)sink
@@ -80,11 +82,70 @@ static const NSTimeInterval RNIntuneTokenTimeout = 45.0;
   [IntuneMAMEnrollmentManager.instance registerAndEnrollAccountId:accountId];
 }
 
+- (void)awaitInteractiveEnrollmentWithUpn:(NSString *)upn
+                               completion:(void (^)(NSDictionary<NSString *, id> *))completion
+{
+  [_lock lock];
+  void (^existing)(NSDictionary *) = _pendingInteractive;
+  _pendingInteractive = completion;
+  [_lock unlock];
+
+  // A previous interactive attempt that never reported is abandoned rather than left
+  // hanging: the user has started a new one, so the old screen is gone.
+  if (existing) {
+    existing(@{
+      @"status" : @"unknown",
+      @"accountId" : NSNull.null,
+      @"nativeCode" : @"RNIntuneSuperseded",
+      @"nativeMessage" : @"A newer interactive enrollment replaced this one.",
+      @"restartRequired" : @NO,
+    });
+  }
+
+  __weak __typeof(self) weakSelf = self;
+  dispatch_after(
+      dispatch_time(DISPATCH_TIME_NOW, (int64_t)(RNIntuneEnrollTimeout * NSEC_PER_SEC)),
+      dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        [weakSelf completeInteractiveWithResult:@{
+          @"status" : @"pending",
+          @"accountId" : NSNull.null,
+          @"nativeCode" : @"RNIntuneTimeout",
+          @"nativeMessage" : @"The SDK did not report a result within the timeout. The "
+                             @"sign-in may still be on screen; watch onEnrollmentResult.",
+          @"restartRequired" : @NO,
+        }];
+      });
+
+  // nil is legal and documented: the SDK then asks for the address itself.
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [IntuneMAMEnrollmentManager.instance
+        loginAndEnrollAccount:upn.length > 0 ? upn : nil];
+  });
+}
+
+- (void)completeInteractiveWithResult:(NSDictionary *)result
+{
+  [_lock lock];
+  void (^completion)(NSDictionary *) = _pendingInteractive;
+  _pendingInteractive = nil;
+  [_lock unlock];
+
+  if (completion) {
+    completion(result);
+  }
+}
+
 - (void)settleForEvent:(NSString *)event body:(NSDictionary *)body
 {
   if (![event isEqualToString:RNIntuneEventEnrollmentResult]) {
     return;
   }
+  // An interactive caller is waiting on a UPN and has no account ID to match, so any
+  // enrollment result settles it. The SDK's sign-in screen is modal, so the only thing
+  // that could race here is one of its own background retries — an early result, not a
+  // wrong one.
+  [self completeInteractiveWithResult:body];
+
   id accountId = body[@"accountId"];
   if (![accountId isKindOfClass:NSString.class]) {
     return;

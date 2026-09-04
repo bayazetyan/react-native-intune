@@ -33,6 +33,21 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<!--
+			Where the sign-in comes back to. MSAL builds this from the bundle ID, and Entra
+			generated the matching redirect URI msauth.intune.example://auth. Without this the
+			system has nothing to route the callback to and the login never returns
+			(SPEC 5.1.2).
+			-->
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msauth.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<!--

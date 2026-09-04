@@ -28,8 +28,22 @@ static NSString *const kUnknown = @"unknown";
     _sink = [sink copy];
     _tokenHandler = [tokenHandler copy];
     _restartHandledByApp = NO;
+    _suppliesTokens = NO;
   }
   return self;
+}
+
+/**
+ * The SDK asks before calling, and @optional means "not implemented" is a real answer.
+ * In `builtin` mode we want the SDK to use the app's MSAL itself, so we must not appear
+ * to offer tokens.
+ */
+- (BOOL)respondsToSelector:(SEL)aSelector
+{
+  if (aSelector == @selector(getAccessTokenForAccountId:resource:completion:)) {
+    return _suppliesTokens;
+  }
+  return [super respondsToSelector:aSelector];
 }
 
 #pragma mark - Status mapping

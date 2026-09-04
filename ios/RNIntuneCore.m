@@ -227,6 +227,9 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
              object:nil];
   }
   _delegates.restartHandledByApp = config.restartHandledByApp;
+  // Only 'external' mode has a token provider behind it. In 'builtin' the module owns
+  // MSAL, so the SDK should reach for it directly rather than asking us and being told no.
+  _delegates.suppliesTokens = [config.authMode isEqualToString:@"external"];
 
   _config = config;
   return YES;
@@ -329,6 +332,12 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
              completion:(void (^)(NSDictionary<NSString *, id> *))completion
 {
   [_pending awaitEnrollment:accountId completion:completion];
+}
+
+- (void)enrollInteractiveWithUpn:(NSString *)upn
+                      completion:(void (^)(NSDictionary<NSString *, id> *))completion
+{
+  [_pending awaitInteractiveEnrollmentWithUpn:upn completion:completion];
 }
 
 - (void)resolveTokenRequest:(NSString *)requestId token:(NSString *)token

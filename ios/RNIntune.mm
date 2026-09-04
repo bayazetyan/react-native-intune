@@ -246,6 +246,21 @@ RCT_EXPORT_MODULE(RNIntune)
                             }];
 }
 
+- (void)enrollInteractive:(JS::NativeIntune::SpecEnrollInteractiveParams &)params
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject
+{
+  if (!RNIntuneCore.shared.isConfigured) {
+    RNIntuneRejectNotConfigured(reject, @"enrollInteractive");
+    return;
+  }
+  [RNIntuneCore.shared
+      enrollInteractiveWithUpn:params.upn()
+                    completion:^(NSDictionary<NSString *, id> *result) {
+                      resolve(result);
+                    }];
+}
+
 - (void)getState:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
 {
   // Deliberately never rejects: reporting `configured: false` is what makes this the

@@ -48,13 +48,17 @@
       "A version bump forces a conscious check against the MAM compatibility matrix and the",
       "host app's toolchain (SPEC.md O-E).",
       "",
+      "msal_ios is exact, not a range: the Intune SDK does not carry its own MSAL, it drives",
+      "the app's. Two consumers on different MSALs is the same hazard pinning the Intune SDK",
+      "exists to prevent. Resolved by CocoaPods on 2026-09-04, not guessed.",
+      "",
       "`requires` is the compatibility-matrix row for the pinned Android tag above (12.4.0 ->",
       "the 12.0.0 row). Microsoft tests these combinations; mixing rows is untested. These are",
       "the library's own defaults in android/build.gradle. The consumer's app module, where the",
       "MAM Gradle plugin actually runs, must land on the same row -- that is O-E, still open."
     ],
     "javassist": "3.29.2-GA",
-    "msal_ios": "TODO — pin after the auth spike (SPEC.md S-3)",
+    "msal_ios": "2.15.0",
     "msal_android": "TODO — pin after the auth spike (SPEC.md S-3)",
     "requires": { "android": "16", "gradle": "8.11.1", "agp": "8.9.1", "kotlin": "2.1.21", "java": "17" }
   }

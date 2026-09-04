@@ -73,6 +73,15 @@ export interface Spec extends TurboModule {
    */
   enroll(params: { accountId: string; upn: string }): Promise<Object>;
 
+  /**
+   * EnrollmentResult. **iOS only** — `loginAndEnrollAccount:` makes the SDK run the
+   * sign-in itself and show its own UI, so no MSAL is needed on our side. Android has no
+   * counterpart: `registerAccountForMAM` always needs a token from the app.
+   *
+   * Pass '' for `upn` to let the SDK prompt for the address as well.
+   */
+  enrollInteractive(params: { upn: string }): Promise<Object>;
+
   /** IntuneState — the reconciliation primitive. */
   getState(): Promise<Object>;
 

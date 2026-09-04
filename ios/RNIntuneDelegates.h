@@ -39,6 +39,17 @@ typedef void (^RNIntuneTokenRequestHandler)(NSString *accountId,
     NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
+/**
+ * Whether this object should answer `getAccessTokenForAccountId:resource:completion:`.
+ *
+ * Only in `authMode: 'external'`. `getAccessTokenForAccountId:` is an @optional protocol
+ * method, and the SDK checks whether the delegate implements it: if it does not, the SDK
+ * acquires the MAM token itself through the app's MSAL. Claiming the method and then
+ * answering "no token" is worse than staying silent — it stops the SDK using a path that
+ * would have worked, and enrollment dies at the location service with no token attached.
+ */
+@property (nonatomic) BOOL suppliesTokens;
+
 /// Mirrors `restartHandledByApp` from `configure`. Decides the return value of
 /// `restartApplication`, which is how the SDK asks who performs the restart.
 @property (nonatomic) BOOL restartHandledByApp;

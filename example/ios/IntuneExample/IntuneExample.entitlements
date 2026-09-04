@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	The Intune MAM SDK stores policy, tokens and its device identity in the keychain, and
+	shares some of it with the broker in a separate process. Without these groups every
+	keychain write fails with -34018 (errSecMissingEntitlement) and nothing works — the
+	SDK logs "Could not store per-install keychain items" and enrollment ends in
+	authorizationNeeded.
+
+	Order matters (CLAUDE.md): the app's own bundle ID first, then the SDK's group, then
+	MSAL's cache group. On a real consumer app IntuneMAMConfigurator writes these; here
+	they are checked in so the example builds without that step.
+	-->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)intune.example</string>
+		<string>$(AppIdentifierPrefix)com.microsoft.intune.mam</string>
+		<string>$(AppIdentifierPrefix)com.microsoft.adalcache</string>
+	</array>
+</dict>
+</plist>

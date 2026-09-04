@@ -46,7 +46,13 @@ import {
   signInSilent,
   signOut,
 } from './api/auth';
-import { enroll, getState, reset, setResetHandler } from './api/enrollment';
+import {
+  enroll,
+  enrollInteractive,
+  getState,
+  reset,
+  setResetHandler,
+} from './api/enrollment';
 import { getDiagnostics, getPolicy } from './api/policy';
 import {
   onBrokerStatusChanged,
@@ -73,6 +79,7 @@ export {
   signOut,
   // enrollment and reset
   enroll,
+  enrollInteractive,
   getState,
   reset,
   setResetHandler,
@@ -102,6 +109,7 @@ const Intune = {
   getAccounts,
   signOut,
   enroll,
+  enrollInteractive,
   getState,
   reset,
   setResetHandler,

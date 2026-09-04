@@ -51,12 +51,12 @@ Pod::Spec.new do |s|
                  "WebKit", "MetricKit"
   s.libraries  = "sqlite3", "c++"
 
-  # MSAL is ours to own (SPEC §3.1) but the version is pinned in the auth spike, not
-  # guessed here: sdk-versions.json -> toolchain.msal_ios is still TODO (SPEC §5.1.2,
-  # S-3). A floating `~> 1.7` would let two consumers build against different MSALs,
-  # which is exactly what pinning the Intune SDK exists to prevent. No code references
-  # MSAL yet, so leaving it out costs nothing today.
-  # s.dependency "MSAL", "<pinned in S-3>"
+  # Required, and not only by our own auth layer. The Intune SDK does not carry its own
+  # MSAL — it drives the app's. Without this pod even loginAndEnrollAccount:, where the
+  # SDK runs the whole sign-in itself, fails with "Failed to instantiate MSALAuthority /
+  # Ensure the appropriate version of ADAL is included in the application" (observed on
+  # device, 2026-09-04). Version pinned in sdk-versions.json -> toolchain.msal_ios.
+  s.dependency "MSAL", "2.15.0"
 
   s.pod_target_xcconfig = {
     "STRIP_SWIFT_SYMBOLS" => "NO",
