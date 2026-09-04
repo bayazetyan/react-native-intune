@@ -43,6 +43,10 @@ export default function App() {
   const [configureResult, setConfigureResult] = useState('not called');
   const [enrollResult, setEnrollResult] = useState('not called');
   const [tokenAsked, setTokenAsked] = useState('never');
+  const [authResult, setAuthResult] = useState('not called');
+  const [authUser, setAuthUser] = useState('—');
+  const [authAccountId, setAuthAccountId] = useState('—');
+  const [cachedAccounts, setCachedAccounts] = useState('not called');
   const [upn, setUpn] = useState('intune-ok@<tenant>.onmicrosoft.com');
 
   const refresh = useCallback(async () => {
@@ -114,6 +118,77 @@ export default function App() {
     await refresh();
   }, [refresh, upn]);
 
+  /**
+   * The path a production app takes, and the one `enrollInteractive` has been standing in
+   * for: the module signs in, hands back an account id, and `enroll` uses it.
+   *
+   * The interesting part is what is *absent* — no token provider is registered for this,
+   * and none should be needed. The SDK acquires the MAM token itself from the MSAL cache
+   * signIn just populated (SPEC §5.1.3). A second password prompt here would mean the two
+   * are not sharing a keychain group.
+   */
+  const runSignInAndEnroll = useCallback(async () => {
+    setAuthResult('signing in…');
+    setEnrollResult('waiting for sign-in');
+    try {
+      const auth = await Intune.signIn({
+        loginHint: upn.length > 0 ? upn : undefined,
+      });
+      // Deliberately no token on screen: the access token is for the app's own scopes
+      // and has no place on a debug screen, and the MAM token never reaches JS at all
+      // (CLAUDE.md rule 9). The account id is shown because it is the value that gets
+      // passed to enroll() — seeing it is the point.
+      setAuthResult('signed in');
+      setAuthUser(auth.username);
+      setAuthAccountId(auth.accountId);
+
+      setEnrollResult('enrolling…');
+      const r = await Intune.enroll({ accountId: auth.accountId });
+      setEnrollResult(`${r.status} (${r.nativeCode})`);
+    } catch (e) {
+      const described = describe(e);
+      setAuthResult(described);
+      setEnrollResult(`stopped: ${described}`);
+    }
+    await refresh();
+  }, [refresh, upn]);
+
+  /** Cache-first. E_INTERACTION_REQUIRED here is the normal answer with an empty cache. */
+  const runSignInSilent = useCallback(async () => {
+    setAuthResult('…');
+    try {
+      const auth = await Intune.signInSilent();
+      setAuthResult('silent: ok');
+      setAuthUser(auth.username);
+      setAuthAccountId(auth.accountId);
+    } catch (e) {
+      setAuthResult(`silent: ${describe(e)}`);
+    }
+    await refresh();
+  }, [refresh]);
+
+  /** Its own row: overwriting the sign-in result made it look like state was lost. */
+  const runGetAccounts = useCallback(async () => {
+    try {
+      const accounts = await Intune.getAccounts();
+      setCachedAccounts(
+        accounts.length === 0
+          ? 'none'
+          : // More than one means state a reset should have cleared (SPEC §9).
+            accounts.map((a) => a.username).join(', ')
+      );
+    } catch (e) {
+      setCachedAccounts(describe(e));
+    }
+  }, []);
+
+  /**
+   * Reset leaves the module unconfigured on purpose — clearing the runtime overrides is
+   * what makes a move to a different tenant possible (SPEC §5.2). So configure again
+   * afterwards, which is what a host app does: it reconciles at launch, and a reset is
+   * just an earlier trigger for the same path. Without this every button afterwards
+   * rejects with E_NOT_CONFIGURED until the app is relaunched.
+   */
   const runReset = useCallback(async () => {
     setEnrollResult('resetting…');
     try {
@@ -233,10 +308,19 @@ export default function App() {
         keyboardType="email-address"
         placeholder="UPN to sign in as"
       />
+      <Row label="signIn" value={authResult} />
+      <Row label="username" value={authUser} />
+      <Row label="accountId" value={authAccountId} />
+      <Row label="cached accounts" value={cachedAccounts} />
       <Row label="result" value={enrollResult} />
       <Row label="token asked for" value={tokenAsked} />
       <View style={styles.buttons}>
-        <Button label="sign in + enroll" onPress={runEnrollInteractive} />
+        <Button label="signIn + enroll" onPress={runSignInAndEnroll} />
+        <Button label="silent" onPress={runSignInSilent} />
+        <Button label="accounts" onPress={runGetAccounts} />
+      </View>
+      <View style={styles.buttons}>
+        <Button label="SDK-driven enroll" onPress={runEnrollInteractive} />
         <Button label="reset" onPress={runReset} />
       </View>
 

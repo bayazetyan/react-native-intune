@@ -24,6 +24,9 @@ NSString *const RNIntuneErrorNative = @"E_NATIVE";
 NSString *const RNIntuneErrorTokenProviderFailed = @"E_TOKEN_PROVIDER_FAILED";
 NSString *const RNIntuneErrorTokenProviderMissing = @"E_TOKEN_PROVIDER_MISSING";
 NSString *const RNIntuneErrorResetInProgress = @"E_RESET_IN_PROGRESS";
+NSString *const RNIntuneErrorInteractionRequired = @"E_INTERACTION_REQUIRED";
+NSString *const RNIntuneErrorUserCancelled = @"E_USER_CANCELLED";
+NSString *const RNIntuneErrorNoAccount = @"E_NO_ACCOUNT";
 NSString *const RNIntuneErrorPlistConflict = @"E_PLIST_CONFLICT";
 
 NSString *const RNIntuneEventEnrollmentResult = @"enrollmentResult";
@@ -69,6 +72,7 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
   RNIntuneVerboseLogger *_Nullable _logger;
   void (^_Nullable _sink)(NSString *, NSDictionary *);
   RNIntunePendingRequests *_pending;
+  RNIntuneAuth *_auth;
 }
 
 - (instancetype)init
@@ -79,6 +83,9 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
         initWithEventSink:^(NSString *event, NSDictionary *body) {
           [weakSelf emit:event body:body];
         }];
+    // Non-nil from the start, holding no tenant state until configured, so no caller
+    // needs a nil check — `isConfigured` on it is the only question worth asking.
+    _auth = [RNIntuneAuth new];
   }
   return self;
 }
@@ -231,6 +238,24 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
   // MSAL, so the SDK should reach for it directly rather than asking us and being told no.
   _delegates.suppliesTokens = [config.authMode isEqualToString:@"external"];
 
+  // MSAL, in `builtin` mode only. In `external` the host app owns it and signing in here
+  // would put a second MSAL instance and a second cache in one binary (SPEC §3.1).
+  //
+  // The keychain group comes from the plist, never from `config`: the SDK's half of that
+  // setting has no runtime setter, so the plist is the single source and the guard above
+  // has already refused a `configure` that disagrees with it (§5.1.4). Pointing MSAL at
+  // anything else here is what rule 8 forbids.
+  if ([config.authMode isEqualToString:@"builtin"]) {
+    NSString *keychainGroup = RNIntunePlistGuard.keychainGroupOverride;
+    if (![_auth configureWithClientId:config.clientId
+                            authority:config.authority
+                          redirectUri:config.redirectUri
+                        keychainGroup:keychainGroup.length > 0 ? keychainGroup : nil
+                                error:error]) {
+      return NO;
+    }
+  }
+
   _config = config;
   return YES;
 }
@@ -374,9 +399,23 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
   return [RNIntunePolicy snapshot];
 }
 
+- (BOOL)builtinAuth
+{
+  // Absent a config there is nothing to be external about, and `builtin` is the default.
+  return _config == nil || [_config.authMode isEqualToString:@"builtin"];
+}
+
+- (RNIntuneAuth *)auth
+{
+  return _auth;
+}
+
 - (void)resetWithWipe:(BOOL)wipe reason:(NSString *)reason
 {
-  [RNIntuneReset runWithWipe:wipe reason:reason tenantId:self.configuredTenantId];
+  [RNIntuneReset runWithWipe:wipe
+                      reason:reason
+                    tenantId:self.configuredTenantId
+                        auth:self.builtinAuth ? _auth : nil];
   // Cleared here rather than inside RNIntuneReset: the config is this object's state,
   // and the reset sequence should not be reaching into it.
   _config = nil;

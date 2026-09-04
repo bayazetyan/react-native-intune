@@ -34,6 +34,12 @@ static NSString *const kMaxFileProtection = @"MaxFileProtectionLevel";
   return [self settings][kMaxFileProtection] ?: @"";
 }
 
++ (NSString *)keychainGroupOverride
+{
+  NSString *value = [self settings][kKeychainGroup];
+  return [value isKindOfClass:NSString.class] ? value : @"";
+}
+
 + (BOOL)check:(RNIntuneConfig *)config error:(NSError *_Nullable *_Nullable)error
 {
   return [self checkIdentityKeys:error] && [self checkKeychainGroup:config error:error] &&

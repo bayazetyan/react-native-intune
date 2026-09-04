@@ -13,6 +13,7 @@
 + (void)runWithWipe:(BOOL)wipe
              reason:(NSString *)reason
            tenantId:(NSString *)tenantId
+               auth:(RNIntuneAuth *)auth
 {
   IntuneMAMEnrollmentManager *manager =
       RNIntuneCore.shared.sdkAvailable ? IntuneMAMEnrollmentManager.instance : nil;
@@ -47,11 +48,22 @@
   IntuneMAMSettings.aadAuthorityUriOverride = nil;
   IntuneMAMSettings.aadRedirectUriOverride = nil;
 
-  // MSAL cache cleanup belongs here. SPEC §7 step 4 still says the host app does it
-  // because the module does not own MSAL — that predates §3, which decided the module
-  // does. In 'builtin' mode it becomes ours and lands with S-3; in 'external' it stays
-  // the host app's. Issues #539 and #464 are both residual MSAL state, so this step is
-  // not cosmetic.
+  // MSAL cache cleanup, and it is not cosmetic: issue #539 reports
+  // `deRegisterAndUnenrollAccountId` leaving keychain state behind, and #464 a fresh
+  // install where the SDK reports no enrolled account yet the sign-in webview autofills a
+  // previously enrolled address and then fails on account mismatch. Both are residual
+  // MSAL state rather than MAM state.
+  //
+  // After the unregister, deliberately: that call blocks while it acquires the Intune AAD
+  // token, and the token comes from this very cache. Clearing it first would make the
+  // unregister fail and strand a registered account (SPEC §5.3).
+  //
+  // Every account rather than one, for the same reason the loop above unregisters them
+  // all — by this point there is no single account id left to be selective with.
+  //
+  // nil in `external` mode, where the cache is the host app's (SPEC §3.2).
+  [auth removeAllAccounts];
+  [auth invalidate];
 
   [RNIntuneResetJournal.shared advanceToStage:RNIntuneResetStageCleaningLocal];
 }
