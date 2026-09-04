@@ -26,6 +26,7 @@ import {
   type BrokerStatus,
   type Diagnostics,
   type EnrollmentResult,
+  type EnrollParams,
   type IntuneConfig,
   type IntuneErrorCode,
   type IntuneEvents,
@@ -152,11 +153,13 @@ function toIntuneState(raw: object): IntuneState {
 function toPolicySnapshot(raw: object): PolicySnapshot {
   const r = raw as Record<string, unknown>;
   return {
+    // Permissive defaults, not `false`: an unmanaged app restricts nothing, and a
+    // missing field must not silently hide a control the SDK is not blocking.
     isManaged: bool(r.isManaged),
-    canCopyToUnmanaged: bool(r.canCopyToUnmanaged),
-    canPasteFromUnmanaged: bool(r.canPasteFromUnmanaged),
-    canSaveToLocal: bool(r.canSaveToLocal),
-    screenshotAllowed: bool(r.screenshotAllowed),
+    canSaveToLocal: bool(r.canSaveToLocal, true),
+    canSaveToPersonal: bool(r.canSaveToPersonal, true),
+    canOpenFromUnmanaged: bool(r.canOpenFromUnmanaged, true),
+    screenshotAllowed: bool(r.screenshotAllowed, true),
     raw: strRecord(r.raw),
   };
 }
@@ -367,6 +370,13 @@ export function configure(config: IntuneConfig): Promise<void> {
     strictMode: config.strictMode ?? __DEV__,
     keychainGroupOverride: config.keychainGroupOverride ?? '',
     telemetryEnabled: config.telemetryEnabled ?? true,
+    // Flattened because Codegen takes no nested optionals; '' means "leave the SDK's
+    // default alone", which is not the same as a colour.
+    brandingBackground: config.branding?.background ?? '',
+    brandingForeground: config.branding?.foreground ?? '',
+    brandingAccent: config.branding?.accent ?? '',
+    brandingSecondaryBackground: config.branding?.secondaryBackground ?? '',
+    brandingSecondaryForeground: config.branding?.secondaryForeground ?? '',
   });
 }
 
@@ -436,11 +446,16 @@ export function signOut(params: SignOutParams): Promise<void> {
  * Read SPEC §8 before branching on `status`. `NotLicensed` and `NotTargeted` must not
  * block the user; `Failed` must.
  */
-export async function enroll(params: {
-  accountId: string;
-}): Promise<EnrollmentResult> {
+export async function enroll(params: EnrollParams): Promise<EnrollmentResult> {
   assertAccountId(params.accountId);
-  return toEnrollmentResult(await NativeIntune.enroll(params));
+  return toEnrollmentResult(
+    // '' rather than undefined: the Codegen spec has no optionals, so "not known" has to
+    // be a value the native side can recognise.
+    await NativeIntune.enroll({
+      accountId: params.accountId,
+      upn: params.upn ?? '',
+    })
+  );
 }
 
 /** The reconciliation primitive. Call it at launch and act on the difference. */
@@ -457,15 +472,26 @@ export async function getState(): Promise<IntuneState> {
  * launch-time reconciliation and let the journal resume it.
  */
 export async function reset(params: ResetParams): Promise<void> {
+  // Order matters and is not the intuitive one (SPEC §7). The unregister has to happen
+  // before anything purges the account's tokens, and on Android the process is expected
+  // to die during it — so local cleanup cannot come first, and cannot be assumed to run
+  // at all. The journal carries the sequence across that death: if this call never
+  // returns, the next launch sees `pendingReset` and calls reset() again with reason
+  // 'resume', landing back here.
+  const state = await getState().catch(() => null);
+  const accountId = state?.enrolledAccountId ?? null;
+
+  await NativeIntune.reset(params);
+
+  // Reached only if the process survived.
   const handler = resetHandler;
   if (handler !== null) {
-    const state = await getState().catch(() => null);
-    await handler({
-      reason: params.reason,
-      accountId: state?.enrolledAccountId ?? null,
-    });
+    // Deliberately not caught: if the app cannot clear its own data, the journal stays
+    // open and the reset is retried next launch rather than being marked done.
+    await handler({ reason: params.reason, accountId });
   }
-  return NativeIntune.reset(params);
+
+  await NativeIntune.completeReset();
 }
 
 /** Convenience for the common path. Use the primitives when you need a step between. */

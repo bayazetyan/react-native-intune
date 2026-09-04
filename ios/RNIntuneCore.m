@@ -4,6 +4,7 @@
 
 #import "RNIntuneCore.h"
 #import "RNIntuneDelegates.h"
+#import "RNIntuneResetJournal.h"
 
 #import <UIKit/UIKit.h>
 
@@ -18,6 +19,7 @@ NSString *const RNIntuneErrorExternalAuthMode = @"E_EXTERNAL_AUTH_MODE";
 NSString *const RNIntuneErrorNative = @"E_NATIVE";
 NSString *const RNIntuneErrorTokenProviderFailed = @"E_TOKEN_PROVIDER_FAILED";
 NSString *const RNIntuneErrorTokenProviderMissing = @"E_TOKEN_PROVIDER_MISSING";
+NSString *const RNIntuneErrorResetInProgress = @"E_RESET_IN_PROGRESS";
 NSString *const RNIntuneErrorPlistConflict = @"E_PLIST_CONFLICT";
 
 NSString *const RNIntuneEventEnrollmentResult = @"enrollmentResult";
@@ -281,6 +283,17 @@ static const NSTimeInterval RNIntuneTokenTimeout = 45.0;
   IntuneMAMSettings.valuesToScrubFromLogging =
       @[ config.clientId, config.tenantId, config.redirectUri ];
 
+  // Only assign what was actually asked for: writing nil would clear a colour the app
+  // may have set in its plist, and '' is not a colour.
+  #define RNIntuneApplyColour(prop, value) \
+    if ((value).length > 0) IntuneMAMSettings.prop = (value);
+  RNIntuneApplyColour(backgroundColor, config.brandingBackground)
+  RNIntuneApplyColour(foregroundColor, config.brandingForeground)
+  RNIntuneApplyColour(accentColor, config.brandingAccent)
+  RNIntuneApplyColour(secondaryBackgroundColor, config.brandingSecondaryBackground)
+  RNIntuneApplyColour(secondaryForegroundColor, config.brandingSecondaryForeground)
+  #undef RNIntuneApplyColour
+
   if (config.verboseLogging) {
     _logger = [RNIntuneVerboseLogger new];
     IntuneMAMPolicyManager.instance.logger = _logger;
@@ -383,9 +396,133 @@ static const NSTimeInterval RNIntuneTokenTimeout = 45.0;
     // enrolled or not. The last delegate status reaches JS as an event instead
     // (SPEC §4.1).
     @"status" : enrolled != nil ? @"succeeded" : NSNull.null,
-    // Written by the reset journal, which is SPEC §7 and not yet implemented.
-    @"pendingReset" : NSNull.null,
+    @"pendingReset" : RNIntuneResetJournal.shared.stage ?: NSNull.null,
   };
+}
+
+- (nullable NSDictionary<NSString *, id> *)policySnapshot
+{
+  if (!self.sdkAvailable) {
+    return nil;
+  }
+
+  IntuneMAMPolicyManager *manager = IntuneMAMPolicyManager.instance;
+  id<IntuneMAMPolicy> policy = manager.policy;
+  BOOL managed = manager.isManagementEnabled;
+
+  if (policy == nil) {
+    // Unmanaged is not an error: an app with no policy is fully permissive, and
+    // reporting `false` everywhere would hide functionality nothing is restricting.
+    return @{
+      @"isManaged" : @NO,
+      @"canSaveToLocal" : @YES,
+      @"canSaveToPersonal" : @YES,
+      @"canOpenFromUnmanaged" : @YES,
+      @"screenshotAllowed" : @YES,
+      @"raw" : @{},
+    };
+  }
+
+  // `withAccountId:nil` means the current identity. Single identity is decided, so there
+  // is never another one to ask about (SPEC §9, CLAUDE.md rule 10).
+  BOOL saveLocal = [policy isSaveToAllowedForLocation:IntuneMAMSaveLocationLocalDrive
+                                        withAccountId:nil];
+  BOOL savePersonal = [policy isSaveToAllowedForLocation:IntuneMAMSaveLocationOther
+                                           withAccountId:nil];
+  BOOL openUnmanaged = [policy isOpenFromAllowedForLocation:IntuneMAMOpenLocationOther
+                                              withAccountId:nil];
+
+  // Everything else the SDK reports, as strings. Explicitly outside semver: anything
+  // depended on here has to be promoted to a typed field first (SPEC §4.3).
+  NSDictionary<NSString *, NSString *> *raw = @{
+    @"isPINRequired" : policy.isPINRequired ? @"true" : @"false",
+    @"isManagedBrowserRequired" : policy.isManagedBrowserRequired ? @"true" : @"false",
+    @"isContactSyncAllowed" : policy.isContactSyncAllowed ? @"true" : @"false",
+    @"isSpotlightIndexingAllowed" : policy.isSpotlightIndexingAllowed ? @"true" : @"false",
+    @"areSiriIntentsAllowed" : policy.areSiriIntentsAllowed ? @"true" : @"false",
+    @"isAppSharingAllowed" : policy.isAppSharingAllowed ? @"true" : @"false",
+    @"isFileEncryptionRequired" : policy.isFileEncryptionRequired ? @"true" : @"false",
+    @"notificationPolicy" :
+        [NSString stringWithFormat:@"%ld", (long)policy.notificationPolicy],
+  };
+
+  return @{
+    @"isManaged" : @(managed),
+    @"canSaveToLocal" : @(saveLocal),
+    @"canSaveToPersonal" : @(savePersonal),
+    @"canOpenFromUnmanaged" : @(openUnmanaged),
+    @"screenshotAllowed" : @(policy.isScreenCaptureAllowed),
+    @"raw" : raw,
+  };
+}
+
+#pragma mark - Reset
+
+- (void)resetWithWipe:(BOOL)wipe reason:(NSString *)reason
+{
+  IntuneMAMEnrollmentManager *manager =
+      self.sdkAvailable ? IntuneMAMEnrollmentManager.instance : nil;
+
+  // Every *registered* account, not just the enrolled one. An account whose enrollment
+  // failed is still registered, and the SDK keeps retrying it on a 24-hour schedule
+  // until it is unregistered — so leaving those behind is precisely the "incomplete
+  // reset is actively harmful" case in SPEC §7. Found by a runtime test that left a
+  // failed registration behind and then could not close the journal.
+  NSArray<NSString *> *accountIds = [manager.registeredAccountIds copy] ?: @[];
+  NSString *enrolled = manager.enrolledAccountId;
+
+  // Written first, and forced to disk, because the next call may end the process.
+  [RNIntuneResetJournal.shared openWithAccountId:enrolled ?: accountIds.firstObject
+                                        tenantId:self.configuredTenantId
+                                            wipe:wipe
+                                          reason:reason];
+
+  for (NSString *accountId in accountIds) {
+    if (accountId.length == 0) {
+      continue;
+    }
+    // Blocks while acquiring the Intune AAD token (SPEC §5.3). The caller runs this off
+    // the main thread.
+    [manager deRegisterAndUnenrollAccountId:accountId withWipe:wipe];
+  }
+
+  // Reached only if the process survived. Clearing the overrides is what makes a tenant
+  // switch possible afterwards — they persist across restarts otherwise (SPEC §5.2).
+  [RNIntuneResetJournal.shared advanceToStage:RNIntuneResetStageCleaningAuth];
+  IntuneMAMSettings.aadClientIdOverride = nil;
+  IntuneMAMSettings.aadAuthorityUriOverride = nil;
+  IntuneMAMSettings.aadRedirectUriOverride = nil;
+  _config = nil;
+
+  // MSAL cache cleanup belongs here. SPEC §7 step 4 still says the host app does it
+  // because the module does not own MSAL — that predates §3, which decided the module
+  // does. In 'builtin' mode it becomes ours and lands with S-3; in 'external' it stays
+  // the host app's. Issues #539 and #464 are both residual MSAL state, so this step is
+  // not cosmetic.
+
+  [RNIntuneResetJournal.shared advanceToStage:RNIntuneResetStageCleaningLocal];
+}
+
+- (BOOL)completeReset
+{
+  if (RNIntuneResetJournal.shared.entry == nil) {
+    return YES;
+  }
+
+  // Verify rather than assume (SPEC §7 step 5). A reset that did not take must stay open
+  // and be retried, because the SDK resumes enrollment retries on its own schedule and a
+  // half-finished reset is worse than none.
+  if (self.sdkAvailable) {
+    IntuneMAMEnrollmentManager *manager = IntuneMAMEnrollmentManager.instance;
+    NSString *stillEnrolled = manager.enrolledAccountId;
+    NSArray *stillRegistered = manager.registeredAccountIds;
+    if (stillEnrolled.length > 0 || stillRegistered.count > 0) {
+      return NO;
+    }
+  }
+
+  [RNIntuneResetJournal.shared close];
+  return YES;
 }
 
 - (NSDictionary<NSString *, NSString *> *)diagnostics

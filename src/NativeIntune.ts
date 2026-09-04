@@ -35,6 +35,12 @@ export interface Spec extends TurboModule {
     strictMode: boolean;
     keychainGroupOverride: string; // '' = platform default
     telemetryEnabled: boolean;
+    // SDK screen branding (SPEC §15 P4). '' leaves the SDK's own default in place.
+    brandingBackground: string;
+    brandingForeground: string;
+    brandingAccent: string;
+    brandingSecondaryBackground: string;
+    brandingSecondaryForeground: string;
   }): Promise<void>;
 
   /** SDK linked and platform prerequisites met. Gate the whole Intune path on this. */
@@ -65,13 +71,24 @@ export interface Spec extends TurboModule {
    * status is data, not an exception. Resolved from the SDK's delegate or notification,
    * never from the underlying call returning (SPEC §12.5).
    */
-  enroll(params: { accountId: string }): Promise<Object>;
+  enroll(params: { accountId: string; upn: string }): Promise<Object>;
 
   /** IntuneState — the reconciliation primitive. */
   getState(): Promise<Object>;
 
-  /** The process is expected to terminate during this call on Android (SPEC §7). */
+  /**
+   * Writes the journal and unregisters. The process is expected to terminate during this
+   * call on Android (SPEC §7), so nothing after it is guaranteed to run.
+   */
   reset(params: { wipe: boolean; reason: string }): Promise<void>;
+
+  /**
+   * NOT public API. Verifies the account really is gone, then closes the journal —
+   * `reset()` in index.ts calls it after the consumer's reset handler has cleared local
+   * data. Separate from `reset` because the steps between them may straddle a process
+   * death, and the journal is what carries the sequence across it (SPEC §7).
+   */
+  completeReset(): Promise<void>;
 
   // ---- policy ----
 
