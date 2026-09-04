@@ -260,7 +260,10 @@ await Intune.configure({
 // combination is a known cause of enrollment failing with AuthRequired, so it is
 // refused up front rather than left to fail in a tenant you cannot reach.
 
-// 2. Let the module clean up your local data during a reset
+// 2. Let the module clean up your local data during a reset.
+// It runs AFTER the unregister, not before — and on Android the process may not
+// survive that call, in which case this runs on the next launch instead. If it
+// throws, the journal stays open and the reset is retried.
 Intune.setResetHandler(async () => {
   await storage.clearAll();
 });

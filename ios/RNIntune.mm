@@ -5,6 +5,8 @@
 #import "RNIntune.h"
 #import "RNIntuneCore.h"
 
+#import <UIKit/UIKit.h>
+
 /// Rejects with a stable code (SPEC §13.6). RCTPromiseRejectBlock reads `code` off the
 /// NSError's userInfo, so every rejection built by RNIntuneCore arrives in JS with the
 /// documented string rather than a platform error number.
@@ -123,6 +125,11 @@ RCT_EXPORT_MODULE(RNIntune)
   resolved.verboseLogging = config.verboseLogging();
   resolved.restartHandledByApp = config.restartHandledByApp();
   resolved.telemetryEnabled = config.telemetryEnabled();
+  resolved.brandingBackground = config.brandingBackground();
+  resolved.brandingForeground = config.brandingForeground();
+  resolved.brandingAccent = config.brandingAccent();
+  resolved.brandingSecondaryBackground = config.brandingSecondaryBackground();
+  resolved.brandingSecondaryForeground = config.brandingSecondaryForeground();
 
   NSError *error = nil;
   if (![RNIntuneCore.shared applyConfig:resolved error:&error]) {
@@ -146,7 +153,35 @@ RCT_EXPORT_MODULE(RNIntune)
 - (void)openBrokerInstall:(RCTPromiseResolveBlock)resolve
                    reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"openBrokerInstall");
+  NSDictionary *status = [RNIntuneCore.shared brokerStatus];
+  if ([status[@"brokerAvailable"] boolValue]) {
+    RNIntuneReject(reject,
+                   [RNIntuneCore errorWithCode:RNIntuneErrorNotNeeded
+                                       message:@"A broker is already installed."]);
+    return;
+  }
+
+  // A search URL rather than a hardcoded App Store id. The numeric id for Authenticator
+  // is well known but is not something this repository has verified, and a wrong one
+  // sends users to the wrong app — CLAUDE.md rule 1 applies to store identifiers too.
+  NSURL *url = [NSURL
+      URLWithString:@"itms-apps://apps.apple.com/search?term=Microsoft%20Authenticator"];
+
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [UIApplication.sharedApplication openURL:url
+                                     options:@{}
+                           completionHandler:^(BOOL success) {
+                             if (success) {
+                               resolve(nil);
+                             } else {
+                               RNIntuneReject(
+                                   reject,
+                                   [RNIntuneCore
+                                       errorWithCode:RNIntuneErrorNative
+                                             message:@"Could not open the App Store."]);
+                             }
+                           }];
+  });
 }
 
 #pragma mark - Auth
@@ -222,14 +257,45 @@ RCT_EXPORT_MODULE(RNIntune)
       resolve:(RCTPromiseResolveBlock)resolve
        reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"reset");
+  BOOL wipe = params.wipe();
+  NSString *reason = params.reason();
+
+  // deRegisterAndUnenrollAccountId: blocks while it acquires the Intune AAD token, so it
+  // can never run on the main thread (SPEC §5.3, §12.5).
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    [RNIntuneCore.shared resetWithWipe:wipe reason:reason];
+    resolve(nil);
+  });
+}
+
+- (void)completeReset:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject
+{
+  if ([RNIntuneCore.shared completeReset]) {
+    resolve(nil);
+    return;
+  }
+  // Left open on purpose: the next launch sees pendingReset and retries. Reporting
+  // success here would strand an account the SDK will keep trying to re-enroll.
+  RNIntuneReject(reject,
+                 [RNIntuneCore errorWithCode:RNIntuneErrorResetInProgress
+                                     message:@"The account is still registered after "
+                                             @"reset, so the journal was left open. It "
+                                             @"will be retried on the next launch."]);
 }
 
 #pragma mark - Policy
 
 - (void)getPolicy:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"getPolicy");
+  NSDictionary *snapshot = [RNIntuneCore.shared policySnapshot];
+  if (snapshot == nil) {
+    RNIntuneReject(reject,
+                   [RNIntuneCore errorWithCode:RNIntuneErrorSDKUnavailable
+                                       message:@"The Intune MAM SDK is not linked."]);
+    return;
+  }
+  resolve(snapshot);
 }
 
 - (void)getDiagnostics:(RCTPromiseResolveBlock)resolve

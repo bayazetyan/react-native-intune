@@ -21,6 +21,7 @@ extern NSString *const RNIntuneErrorExternalAuthMode;
 extern NSString *const RNIntuneErrorNative;
 extern NSString *const RNIntuneErrorTokenProviderFailed;
 extern NSString *const RNIntuneErrorTokenProviderMissing;
+extern NSString *const RNIntuneErrorResetInProgress;
 /// Raised by the configure-time assertions below. Not in SPEC §13.6 yet — see §12.7 S1.
 extern NSString *const RNIntuneErrorPlistConflict;
 
@@ -46,6 +47,12 @@ extern NSString *const RNIntuneEventBrokerStatusChanged;
 @property (nonatomic) BOOL verboseLogging;
 @property (nonatomic) BOOL restartHandledByApp;
 @property (nonatomic) BOOL telemetryEnabled;
+/// Hex strings for the SDK's own screens; empty means "leave Microsoft's default".
+@property (nonatomic, copy) NSString *brandingBackground;
+@property (nonatomic, copy) NSString *brandingForeground;
+@property (nonatomic, copy) NSString *brandingAccent;
+@property (nonatomic, copy) NSString *brandingSecondaryBackground;
+@property (nonatomic, copy) NSString *brandingSecondaryForeground;
 @end
 
 @interface RNIntuneCore : NSObject
@@ -94,6 +101,24 @@ extern NSString *const RNIntuneEventBrokerStatusChanged;
  */
 - (void)enrollAccountId:(NSString *)accountId
              completion:(void (^)(NSDictionary<NSString *, id> *result))completion;
+
+/// PolicySnapshot (SPEC §4.3). Nil when the SDK is not linked.
+- (nullable NSDictionary<NSString *, id> *)policySnapshot;
+
+#pragma mark - Reset (SPEC §7)
+
+/**
+ * Writes the journal, then unregisters and unenrolls.
+ *
+ * **Blocks** while the SDK acquires the Intune AAD token, so it must not run on the main
+ * thread, and it must happen before the host app purges the account's Entra tokens
+ * (SPEC §5.3). The process may not survive it; everything after is driven by the journal.
+ */
+- (void)resetWithWipe:(BOOL)wipe reason:(NSString *)reason;
+
+/// Verifies the account is really gone and closes the journal. Returns NO and leaves the
+/// journal open when it is not, so the next launch retries rather than declaring success.
+- (BOOL)completeReset;
 
 #pragma mark - Token bridge (SPEC §13.4)
 

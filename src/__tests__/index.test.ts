@@ -13,6 +13,9 @@ const mockNative = {
   configure: jest.fn(async () => undefined),
   enroll: jest.fn(async () => ({}) as object),
   getState: jest.fn(async () => ({}) as object),
+  getPolicy: jest.fn(async () => ({}) as object),
+  reset: jest.fn(async () => undefined),
+  completeReset: jest.fn(async () => undefined),
   resolveToken: jest.fn(),
   rejectToken: jest.fn(),
   addListener: jest.fn(),
@@ -83,8 +86,23 @@ describe('accountId validation', () => {
   it('accepts an Entra object ID', async () => {
     mockNative.enroll.mockResolvedValueOnce({ status: 'succeeded' });
     await Intune.enroll({ accountId: VALID_ACCOUNT_ID });
+    // '' rather than undefined: the Codegen spec has no optionals, so "not known" has to
+    // be a value the native side can recognise (SPEC §6.3).
     expect(mockNative.enroll).toHaveBeenCalledWith({
       accountId: VALID_ACCOUNT_ID,
+      upn: '',
+    });
+  });
+
+  it('passes a UPN through when one is supplied', async () => {
+    mockNative.enroll.mockResolvedValueOnce({ status: 'succeeded' });
+    await Intune.enroll({
+      accountId: VALID_ACCOUNT_ID,
+      upn: 'user@contoso.com',
+    });
+    expect(mockNative.enroll).toHaveBeenCalledWith({
+      accountId: VALID_ACCOUNT_ID,
+      upn: 'user@contoso.com',
     });
   });
 });
@@ -130,6 +148,61 @@ describe('setTokenProvider', () => {
     expect(() => Intune.setTokenProvider(null)).not.toThrow();
     expect(mockNative.resolveToken).not.toHaveBeenCalled();
     expect(mockNative.rejectToken).not.toHaveBeenCalled();
+  });
+});
+
+describe('reset', () => {
+  it('unregisters before clearing local data, not after', async () => {
+    // The counterintuitive order, and the one SPEC §7 requires: the unregister has to
+    // precede any token purge, and on Android the process is expected to die during it.
+    const order: string[] = [];
+    mockNative.getState.mockResolvedValueOnce({
+      enrolledAccountId: VALID_ACCOUNT_ID,
+    });
+    mockNative.reset.mockImplementationOnce(async () => {
+      order.push('native reset');
+    });
+    mockNative.completeReset.mockImplementationOnce(async () => {
+      order.push('completeReset');
+    });
+    Intune.setResetHandler(async () => {
+      order.push('handler');
+    });
+
+    await Intune.reset({ wipe: true, reason: 'logout' });
+
+    expect(order).toEqual(['native reset', 'handler', 'completeReset']);
+    Intune.setResetHandler(null);
+  });
+
+  it('leaves the journal open when the app cannot clear its own data', async () => {
+    // Not caught on purpose: an unfinished reset must be retried next launch rather than
+    // marked done, because the SDK resumes enrollment retries on its own schedule.
+    mockNative.getState.mockResolvedValueOnce({});
+    Intune.setResetHandler(async () => {
+      throw new Error('storage locked');
+    });
+
+    await expect(
+      Intune.reset({ wipe: true, reason: 'logout' })
+    ).rejects.toThrow('storage locked');
+    expect(mockNative.completeReset).not.toHaveBeenCalled();
+    Intune.setResetHandler(null);
+  });
+});
+
+describe('getPolicy', () => {
+  it('defaults to permissive when the SDK reports nothing', async () => {
+    // Reporting `false` would hide controls nothing is restricting.
+    mockNative.getPolicy.mockResolvedValueOnce({});
+    await expect(Intune.getPolicy()).resolves.toEqual({
+      isManaged: false,
+      canSaveToLocal: true,
+      canSaveToPersonal: true,
+      canOpenFromUnmanaged: true,
+      screenshotAllowed: true,
+      raw: {},
+    });
   });
 });
 
@@ -184,6 +257,33 @@ describe('configure', () => {
       strictMode: __DEV__,
       keychainGroupOverride: '',
       telemetryEnabled: true,
+      // '' means "leave the SDK's default alone", which is not the same as a colour.
+      brandingBackground: '',
+      brandingForeground: '',
+      brandingAccent: '',
+      brandingSecondaryBackground: '',
+      brandingSecondaryForeground: '',
     });
+  });
+
+  it('flattens branding, sending only what was asked for', async () => {
+    await Intune.configure({
+      clientId: 'client',
+      tenantId: 'tenant',
+      authority: 'https://login.microsoftonline.com/tenant',
+      redirectUri: 'msauth.app://auth',
+      branding: { background: '#1B5E20', accent: '#FFC107' },
+    });
+
+    expect(mockNative.configure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandingBackground: '#1B5E20',
+        brandingAccent: '#FFC107',
+        // Untouched keys stay empty rather than becoming a colour of their own.
+        brandingForeground: '',
+        brandingSecondaryBackground: '',
+        brandingSecondaryForeground: '',
+      })
+    );
   });
 });

@@ -87,10 +87,27 @@ export default function App() {
     await refresh();
   }, [refresh]);
 
+  const runReset = useCallback(async () => {
+    setEnrollResult('resetting…');
+    try {
+      await Intune.reset({ wipe: true, reason: 'support_reset' });
+      setEnrollResult('reset resolved');
+    } catch (e) {
+      setEnrollResult(`reset: ${describe(e)}`);
+    }
+    await refresh();
+  }, [refresh]);
+
   useEffect(() => {
     // Declines every request, on purpose. There is no tenant and no MSAL yet, so the
     // point is to prove the round trip runs at all: SDK asks -> native emits
     // tokenRequest -> this provider answers -> native tells the SDK (SPEC §13.4).
+    // Proves the journal is what drives the sequence: the handler runs after the
+    // native unregister, not before, and a throw here leaves the journal open.
+    Intune.setResetHandler(({ reason }) => {
+      console.log('resetHandler', reason);
+    });
+
     Intune.setTokenProvider((request) => {
       setTokenAsked(request.resourceId || '(no resource)');
       return null;
@@ -130,6 +147,7 @@ export default function App() {
     return () => {
       subs.forEach((s) => s.remove());
       Intune.setTokenProvider(null);
+      Intune.setResetHandler(null);
     };
   }, [refresh]);
 
@@ -169,6 +187,7 @@ export default function App() {
       <Row label="token asked for" value={tokenAsked} />
       <View style={styles.buttons}>
         <Button label="enroll" onPress={runEnroll} />
+        <Button label="reset" onPress={runReset} />
       </View>
 
       <Text style={styles.section}>getState</Text>

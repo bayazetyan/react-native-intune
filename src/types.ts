@@ -107,6 +107,23 @@ export type IntuneConfig = {
   keychainGroupOverride?: string;
   /** Default `true`, matching the SDK. Set `false` to opt out of Microsoft telemetry. */
   telemetryEnabled?: boolean;
+  /**
+   * Colours for the screens the SDK draws itself — the PIN prompt, the blur overlay, the
+   * policy and diagnostics screens. Anything left unset keeps Microsoft's default.
+   *
+   * These are the SDK's own UI, not yours: it renders them over your app and you cannot
+   * restyle them any other way (SPEC §15 P4).
+   */
+  branding?: Branding;
+};
+
+/** Hex strings, e.g. `#1B5E20`. */
+export type Branding = {
+  background?: string;
+  foreground?: string;
+  accent?: string;
+  secondaryBackground?: string;
+  secondaryForeground?: string;
 };
 
 // ---------------------------------------------------------------- auth
@@ -145,6 +162,21 @@ export type AuthAccount = {
   accountId: string;
   tenantId: string;
   username: string;
+};
+
+export type EnrollParams = {
+  /** Entra object ID. Never a UPN — that is what `upn` below is for. */
+  accountId: string;
+  /**
+   * **Android, `authMode: 'external'` only.** `registerAccountForMAM` takes the UPN as
+   * well as the object ID and will not accept null for it, and in `external` mode the
+   * module has no MSAL cache to resolve one from.
+   *
+   * Leave it unset in `builtin` mode — the module reads it from its own MSAL account.
+   * iOS never needs it: `registerAndEnrollAccountId:` takes the object ID alone and the
+   * SDK resolves the UPN itself. See SPEC §6.3.
+   */
+  upn?: string;
 };
 
 export type SignOutParams = {
@@ -205,12 +237,26 @@ export type ResetParams = {
  * SDK and never surface here.** Do not try to implement enforcement from these booleans.
  *
  * Deliberately short: every field is a support obligation.
+ *
+ * There is no clipboard field, and there cannot be one. Neither platform exposes a
+ * clipboard policy getter — the restriction is enforced inside the SDK and is not
+ * queryable — so `canSaveToPersonal` and `canOpenFromUnmanaged` serve the same
+ * "adapt your UI" purpose using values both platforms can actually answer (SPEC §4.3).
+ *
+ * When no policy applies, every field is permissive rather than `false`: reporting
+ * `false` would hide functionality that nothing is restricting.
  */
 export type PolicySnapshot = {
   isManaged: boolean;
-  canCopyToUnmanaged: boolean;
-  canPasteFromUnmanaged: boolean;
+  /** Save into the app's own storage. */
   canSaveToLocal: boolean;
+  /**
+   * Save out to a personal, unmanaged destination. Gate an export or "save a copy"
+   * control on this.
+   */
+  canSaveToPersonal: boolean;
+  /** Bring data in from an unmanaged location. Gate an import control on this. */
+  canOpenFromUnmanaged: boolean;
   screenshotAllowed: boolean;
   /**
    * Everything else the SDK reports. **Excluded from semver** — unstable, debug only.
