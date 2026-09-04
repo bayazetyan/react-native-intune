@@ -252,13 +252,32 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
 {
   UIApplication *app = UIApplication.sharedApplication;
 
-  NSURL *authenticator = [NSURL
-      URLWithString:[RNIntuneAuthenticatorScheme stringByAppendingString:@"://"]];
-  NSURL *companyPortal = [NSURL
-      URLWithString:[RNIntuneCompanyPortalScheme stringByAppendingString:@"://"]];
+  // The host must be `broker`, not an empty one.
+  //
+  // `canOpenURL:` against `msauthv2://` answers NO even with Authenticator installed and
+  // `msauthv2` declared in LSApplicationQueriesSchemes — found on device, where
+  // Authenticator 6.8.54 was present and this method still reported no broker at all.
+  // MSAL itself queries `<scheme>://broker`
+  // (IdentityCore/src/parameters/MSIDBrokerInvocationOptions.m,
+  // `isRequiredBrokerPresent`), and our answer has to agree with the library that
+  // actually performs the brokered sign-in — otherwise the app is told to install
+  // something it already has, or worse, told it is fine when it is not.
+  BOOL (^canOpen)(NSString *) = ^BOOL(NSString *url) {
+    NSURL *parsed = [NSURL URLWithString:url];
+    return parsed != nil && [app canOpenURL:parsed];
+  };
 
-  BOOL hasAuthenticator = [app canOpenURL:authenticator];
-  BOOL hasCompanyPortal = [app canOpenURL:companyPortal];
+  NSString *brokerScheme =
+      [RNIntuneAuthenticatorScheme stringByAppendingString:@"://broker"];
+  BOOL hasAuthenticator = canOpen(brokerScheme);
+
+  // Company Portal is a broker too, and it is the one Android needs, so probe its own
+  // scheme as well. Both forms, because `://broker` is MSAL's convention and
+  // `companyportal://` is the scheme Intune's own documentation uses — whichever the
+  // installed version answers, the answer is "present".
+  BOOL hasCompanyPortal =
+      canOpen([RNIntuneCompanyPortalScheme stringByAppendingString:@"://broker"]) ||
+      canOpen([RNIntuneCompanyPortalScheme stringByAppendingString:@"://"]);
 
   return @{
     // Either broker will do on iOS — Authenticator is the common one.
