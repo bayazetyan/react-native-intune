@@ -22,6 +22,9 @@ see [`customer-onboarding.md`](./customer-onboarding.md).
 | — | [Things that look broken and are not](#things-that-look-broken-and-are-not) | |
 
 > **Portal labels move.** Microsoft renames and reshuffles these menus regularly. The
+> paths here say **Entra ID** because that is what the left-hand menu reads today; it has
+> also been called *Identity* and *Azure Active Directory*, and it will be called
+> something else again. The
 > paths below were accurate when written; if a label has moved, the console's own search
 > box usually finds it faster than hunting the tree. The *values* — permission names,
 > bundle IDs, redirect URIs — do not move.
@@ -89,7 +92,7 @@ Both are reachable from `portal.azure.com` via the top search bar. The old Intun
 
 Produces `clientId`, `tenantId` and the two redirect URIs.
 
-> entra.microsoft.com › Identity › Applications › App registrations › **New registration**
+> entra.microsoft.com › **Entra ID** › App registrations › **New registration**
 
 1. **Name** — something you will recognise in a list a year from now.
    `react-native-intune — test` works.
@@ -198,7 +201,7 @@ in the Status column. A warning triangle means consent did not go through.
 
 Four users, because four different result codes have to be reachable.
 
-> entra.microsoft.com › Identity › Users › **New user** › Create new user
+> entra.microsoft.com › **Entra ID** › Users › **New user** › Create new user
 
 | User | Set up as | Reaches | App must |
 |---|---|---|---|
@@ -214,7 +217,7 @@ backwards breaks every customer who has staff outside the Intune licence pool. S
 
 ### Assign the licences
 
-> Identity › Users › *pick a user* › Licenses › **Assignments**
+> **Entra ID** › Users › *pick a user* › Licenses › **Assignments**
 
 > **Owning a licence is not assigning it.** A licence sitting in the subscription does
 > nothing. It has to be assigned to each person individually on this screen. An
@@ -223,7 +226,7 @@ backwards breaks every customer who has staff outside the Intune licence pool. S
 
 ### Create the group
 
-> Identity › Groups › **New group**
+> **Entra ID** › Groups › **New group**
 
 - Group type **Security**, membership type **Assigned**.
 - Name it after its job: `intune-module-test`.
