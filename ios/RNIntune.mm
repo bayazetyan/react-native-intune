@@ -7,6 +7,12 @@
 
 #import <UIKit/UIKit.h>
 
+// The only file that may import React (CLAUDE.md rule 7). RCTPresentedViewController()
+// finds the controller MSAL must present its sign-in from, including when the app already
+// has a modal up — which is why the auth layer takes it as a parameter rather than
+// guessing at the key window's root.
+#import <React/RCTUtils.h>
+
 /// Rejects with a stable code (SPEC §13.6). RCTPromiseRejectBlock reads `code` off the
 /// NSError's userInfo, so every rejection built by RNIntuneCore arrives in JS with the
 /// documented string rather than a platform error number.
@@ -23,6 +29,49 @@ static void RNIntuneRejectNotConfigured(RCTPromiseRejectBlock reject, NSString *
             message:[NSString stringWithFormat:
                                   @"%@ was called before configure() resolved.", method]];
   RNIntuneReject(reject, error);
+}
+
+/// `authMode: 'external'` means the host app owns MSAL; signing in here would put a
+/// second instance and a second cache in one binary (SPEC §3.2).
+static void RNIntuneRejectExternalAuth(RCTPromiseRejectBlock reject, NSString *method)
+{
+  NSError *error = [RNIntuneCore
+      errorWithCode:RNIntuneErrorExternalAuthMode
+            message:[NSString stringWithFormat:
+                                  @"%@ is unavailable in authMode 'external'. The host "
+                                  @"app owns MSAL there; supply the account id to "
+                                  @"enroll() and answer tokenRequest via "
+                                  @"setTokenProvider.",
+                                  method]];
+  RNIntuneReject(reject, error);
+}
+
+/// Every auth method needs the same three checks in the same order. Returns nil when the
+/// caller may proceed, or the rejection has already been sent.
+static BOOL RNIntuneAuthReady(RCTPromiseRejectBlock reject, NSString *method)
+{
+  if (!RNIntuneCore.shared.isConfigured) {
+    RNIntuneRejectNotConfigured(reject, method);
+    return NO;
+  }
+  if (!RNIntuneCore.shared.builtinAuth) {
+    RNIntuneRejectExternalAuth(reject, method);
+    return NO;
+  }
+  return YES;
+}
+
+/// Answers one auth call: a result resolves, an error rejects with its stable code.
+static RNIntuneAuthCompletion RNIntuneAuthHandler(RCTPromiseResolveBlock resolve,
+                                                  RCTPromiseRejectBlock reject)
+{
+  return ^(NSDictionary<NSString *, id> *result, NSError *error) {
+    if (result != nil) {
+      resolve(result);
+      return;
+    }
+    RNIntuneReject(reject, error);
+  };
 }
 
 @implementation RNIntune {
@@ -186,37 +235,111 @@ RCT_EXPORT_MODULE(RNIntune)
 
 #pragma mark - Auth
 
+/// These five take `Object` in the Codegen spec, so the values arrive untyped and are
+/// read defensively here. `index.ts` has already narrowed and defaulted them
+/// (CLAUDE.md rule 11) — this is the second line of defence, not the first.
+static NSArray<NSString *> *RNIntuneScopes(NSDictionary *params)
+{
+  id scopes = params[@"scopes"];
+  return [scopes isKindOfClass:NSArray.class] ? scopes : @[];
+}
+
+static NSString *RNIntuneOptionalString(NSDictionary *params, NSString *key)
+{
+  id value = params[key];
+  return [value isKindOfClass:NSString.class] && [value length] > 0 ? value : nil;
+}
+
 - (void)signIn:(NSDictionary *)params
        resolve:(RCTPromiseResolveBlock)resolve
         reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"signIn");
+  if (!RNIntuneAuthReady(reject, @"signIn")) {
+    return;
+  }
+  [RNIntuneCore.shared.auth
+      signInWithScopes:RNIntuneScopes(params)
+             loginHint:RNIntuneOptionalString(params, @"loginHint")
+                prompt:RNIntuneOptionalString(params, @"prompt")
+      presentingController:RCTPresentedViewController()
+            completion:RNIntuneAuthHandler(resolve, reject)];
 }
 
 - (void)signInSilent:(NSDictionary *)params
              resolve:(RCTPromiseResolveBlock)resolve
               reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"signInSilent");
+  if (!RNIntuneAuthReady(reject, @"signInSilent")) {
+    return;
+  }
+  [RNIntuneCore.shared.auth
+      signInSilentWithScopes:RNIntuneScopes(params)
+                   accountId:RNIntuneOptionalString(params, @"accountId")
+                  completion:RNIntuneAuthHandler(resolve, reject)];
 }
 
 - (void)acquireToken:(NSDictionary *)params
              resolve:(RCTPromiseResolveBlock)resolve
               reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"acquireToken");
+  if (!RNIntuneAuthReady(reject, @"acquireToken")) {
+    return;
+  }
+  id forceRefresh = params[@"forceRefresh"];
+  [RNIntuneCore.shared.auth
+      acquireTokenWithScopes:RNIntuneScopes(params)
+                   accountId:RNIntuneOptionalString(params, @"accountId")
+                forceRefresh:[forceRefresh isKindOfClass:NSNumber.class]
+                                 ? [forceRefresh boolValue]
+                                 : NO
+                  completion:RNIntuneAuthHandler(resolve, reject)];
 }
 
 - (void)getAccounts:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"getAccounts");
+  if (!RNIntuneAuthReady(reject, @"getAccounts")) {
+    return;
+  }
+  NSError *error = nil;
+  NSArray *accounts = [RNIntuneCore.shared.auth accountsWithError:&error];
+  if (accounts == nil) {
+    RNIntuneReject(reject, error);
+    return;
+  }
+  resolve(accounts);
 }
 
 - (void)signOut:(JS::NativeIntune::SpecSignOutParams &)params
         resolve:(RCTPromiseResolveBlock)resolve
          reject:(RCTPromiseRejectBlock)reject
 {
-  RNIntuneRejectNotConfigured(reject, @"signOut");
+  if (!RNIntuneAuthReady(reject, @"signOut")) {
+    return;
+  }
+
+  NSString *accountId = params.accountId();
+  BOOL wipeIntune = params.wipeIntune();
+
+  // Off the main thread whenever a wipe is involved: the unregister inside the reset
+  // sequence blocks while it acquires the Intune AAD token (SPEC §5.3, §12.5).
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    if (wipeIntune) {
+      // The order is the whole point of doing this in one place: unregister first, then
+      // clear MSAL. Reversed, the unregister loses the token it needs and leaves the
+      // account registered — which is what the host app could not reliably sequence back
+      // when MSAL lived on its side (SPEC §13.1.1).
+      [RNIntuneCore.shared resetWithWipe:YES reason:@"logout"];
+      resolve(nil);
+      return;
+    }
+
+    NSError *error = nil;
+    if (![RNIntuneCore.shared.auth removeAccountId:accountId error:&error]) {
+      RNIntuneReject(reject, error);
+      return;
+    }
+    resolve(nil);
+  });
 }
 
 #pragma mark - Enrollment

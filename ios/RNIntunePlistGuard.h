@@ -27,6 +27,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// For `getDiagnostics` — the plist's MaxFileProtectionLevel, or an empty string.
 + (NSString *)maxFileProtectionLevel;
 
+/// The plist's `ADALCacheKeychainGroupOverride`, or an empty string. This key has no
+/// runtime setter, so the plist is the only source and MSAL must be pointed at the same
+/// value (§5.1.4).
++ (NSString *)keychainGroupOverride;
+
 @end
 
 NS_ASSUME_NONNULL_END

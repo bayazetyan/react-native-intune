@@ -9,6 +9,8 @@
 
 #import <Foundation/Foundation.h>
 
+#import "RNIntuneAuth.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 /// Stable rejection codes (SPEC §13.6). Never surface a raw platform error to JS.
@@ -22,6 +24,10 @@ extern NSString *const RNIntuneErrorNative;
 extern NSString *const RNIntuneErrorTokenProviderFailed;
 extern NSString *const RNIntuneErrorTokenProviderMissing;
 extern NSString *const RNIntuneErrorResetInProgress;
+/// MSAL outcomes that are ordinary control flow, not faults (SPEC §13.6).
+extern NSString *const RNIntuneErrorInteractionRequired;
+extern NSString *const RNIntuneErrorUserCancelled;
+extern NSString *const RNIntuneErrorNoAccount;
 /// Raised by the configure-time assertions below. Not in SPEC §13.6 yet — see §12.7 S1.
 extern NSString *const RNIntuneErrorPlistConflict;
 
@@ -68,6 +74,13 @@ extern NSString *const RNIntuneEventBrokerStatusChanged;
 
 @property (nonatomic, readonly, getter=isConfigured) BOOL configured;
 @property (nonatomic, readonly, nullable) NSString *configuredTenantId;
+
+/// NO in `authMode: 'external'`, where the host app owns MSAL and the module performs no
+/// sign-in at all (SPEC §3.2).
+@property (nonatomic, readonly) BOOL builtinAuth;
+
+/// MSAL. Configured only in `builtin` mode; `isConfigured` is NO otherwise.
+@property (nonatomic, readonly) RNIntuneAuth *auth;
 
 /// Applies the runtime overrides, installs the delegates, and runs the configure-time
 /// assertions. Returns NO and fills `error` on `E_RESET_REQUIRED` (different tenant),

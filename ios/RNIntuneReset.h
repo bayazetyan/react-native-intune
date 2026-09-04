@@ -8,6 +8,8 @@
 
 #import <Foundation/Foundation.h>
 
+@class RNIntuneAuth;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface RNIntuneReset : NSObject
@@ -20,7 +22,8 @@ NS_ASSUME_NONNULL_BEGIN
  */
 + (void)runWithWipe:(BOOL)wipe
              reason:(NSString *)reason
-           tenantId:(nullable NSString *)tenantId;
+           tenantId:(nullable NSString *)tenantId
+               auth:(nullable RNIntuneAuth *)auth;
 
 /// Verifies the account is really gone and closes the journal. NO leaves it open, so the
 /// next launch retries rather than declaring a reset that did not happen.
