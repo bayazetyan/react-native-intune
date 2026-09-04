@@ -217,12 +217,29 @@ backwards breaks every customer who has staff outside the Intune licence pool. S
 
 ### Assign the licences
 
-> **Entra ID** › Users › *pick a user* › Licenses › **Assignments**
+**Not in Entra.** Its Licenses page now says so outright: *"Adding, removing, and
+reprocessing licensing assignments is only available within the M365 Admin Center."*
+
+> [admin.microsoft.com](https://admin.microsoft.com) › Users › Active users ›
+> *pick a user* › **Licenses and apps** › tick the licence › **Save changes**
+
+Select all three licensed users at once there and assign in a single action.
+
+Which licence: whichever product in the tenant contains Intune — **Microsoft Intune Plan
+1** on its own, or **Microsoft 365 E3 / E5 / Business Premium** or **Enterprise Mobility
++ Security E3 / E5**, which include it. If the list is empty, the tenant has none: get one
+from *Billing* › *Purchase services* › **Microsoft Intune Plan 1** › start the trial, then
+come back.
 
 > **Owning a licence is not assigning it.** A licence sitting in the subscription does
-> nothing. It has to be assigned to each person individually on this screen. An
-> unassigned licence produces `notLicensed` against a technically perfect integration,
-> and the error looks like a code bug.
+> nothing. It has to be assigned to each person. An unassigned licence produces
+> `notLicensed` against a technically perfect integration, and the error looks like a code
+> bug.
+
+> **Set a country first, or the assignment is refused.** Microsoft will not licence a user
+> with no usage location, and the error names the field rather than the fix. Set it in
+> Entra for all four at once: *Users* › select them all › **Edit properties** › add the
+> **Usage location** property › pick a country › *Save*.
 
 ### Create the group
 
