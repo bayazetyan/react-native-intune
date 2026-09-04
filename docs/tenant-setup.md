@@ -97,11 +97,26 @@ keytool -exportcert -alias androiddebugkey \
   | openssl sha1 -binary | openssl base64
 ```
 
-> **Add the release hash now, not later.** Debug and release builds are signed with
-> different keys, so they have different hashes. Register both while you are on this
-> screen. If you skip it, the first release build fails with
+> **One hash is enough today — but know when a second one appears.**
+>
+> Debug and release builds are signed with different keys and therefore have different
+> hashes, so an app normally needs both registered here. **The example app in this
+> repository is not there yet:** `example/android/app/build.gradle` signs its `release`
+> build with `signingConfigs.debug`, the same key as debug. So the hash above covers
+> both, and there is nothing else to add. Skip ahead to *Allow public client flows*.
+>
+> This changes the moment the **product** app gets a real release keystore. On that day,
+> come back to this screen and add its hash as a second Android platform entry:
+>
+> ```bash
+> keytool -exportcert -alias <your-release-alias> \
+>   -keystore <path/to/release.keystore> \
+>   | openssl sha1 -binary | openssl base64
+> ```
+>
+> Miss it and the first release build fails with
 > `MsalClientException: The redirect URI in the configuration file doesn't match` —
-> months later, with nothing pointing at this screen.
+> months later, with nothing pointing back at this screen.
 
 ### Allow public client flows
 
