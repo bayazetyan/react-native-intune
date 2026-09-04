@@ -16,6 +16,7 @@ import Intune, {
  */
 const PLACEHOLDER_TENANT = '00000000-0000-0000-0000-0000000000t1';
 const PLACEHOLDER_CLIENT = '00000000-0000-0000-0000-0000000000c1';
+const PLACEHOLDER_ACCOUNT = '3ec2c00f-b125-4519-acf0-302ac3761822';
 
 export default function App() {
   const [supported, setSupported] = useState('…');
@@ -23,6 +24,8 @@ export default function App() {
   const [state, setState] = useState<IntuneState | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [configureResult, setConfigureResult] = useState('not called');
+  const [enrollResult, setEnrollResult] = useState('not called');
+  const [tokenAsked, setTokenAsked] = useState('never');
 
   const refresh = useCallback(async () => {
     try {
@@ -72,7 +75,27 @@ export default function App() {
     await refresh();
   }, [refresh]);
 
+  const runEnroll = useCallback(async () => {
+    setEnrollResult('…');
+    try {
+      const r = await Intune.enroll({ accountId: PLACEHOLDER_ACCOUNT });
+      // Resolves for every outcome — a non-success status is data, not an exception.
+      setEnrollResult(`${r.status} (${r.nativeCode})`);
+    } catch (e) {
+      setEnrollResult(describe(e));
+    }
+    await refresh();
+  }, [refresh]);
+
   useEffect(() => {
+    // Declines every request, on purpose. There is no tenant and no MSAL yet, so the
+    // point is to prove the round trip runs at all: SDK asks -> native emits
+    // tokenRequest -> this provider answers -> native tells the SDK (SPEC §13.4).
+    Intune.setTokenProvider((request) => {
+      setTokenAsked(request.resourceId || '(no resource)');
+      return null;
+    });
+
     // Subscribed before anything else is called: a service-initiated wipe can arrive
     // with no prior app call at all (SPEC §4.4).
     const subs = [
@@ -104,7 +127,10 @@ export default function App() {
 
     load().catch(() => {});
 
-    return () => subs.forEach((s) => s.remove());
+    return () => {
+      subs.forEach((s) => s.remove());
+      Intune.setTokenProvider(null);
+    };
   }, [refresh]);
 
   return (
@@ -136,6 +162,13 @@ export default function App() {
       <View style={styles.buttons}>
         <Button label="configure" onPress={runConfigure} />
         <Button label="switch tenant" onPress={runTenantSwitch} />
+      </View>
+
+      <Text style={styles.section}>enroll</Text>
+      <Row label="result" value={enrollResult} />
+      <Row label="token asked for" value={tokenAsked} />
+      <View style={styles.buttons}>
+        <Button label="enroll" onPress={runEnroll} />
       </View>
 
       <Text style={styles.section}>getState</Text>

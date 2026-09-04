@@ -259,7 +259,6 @@ export function onRestartRequired(
 // ---------------------------------------------------------------- token provider
 
 let tokenProvider: TokenProvider | null = null;
-let tokenSubscription: EmitterSubscription | null = null;
 
 /**
  * Registers the MAM service token provider for `authMode: 'external'`.
@@ -272,59 +271,61 @@ let tokenSubscription: EmitterSubscription | null = null;
  */
 export function setTokenProvider(provider: TokenProvider | null): void {
   tokenProvider = provider;
+}
 
-  if (provider === null) {
-    tokenSubscription?.remove();
-    tokenSubscription = null;
+/**
+ * Subscribed at import time, not from `setTokenProvider`.
+ *
+ * The SDK asks on its own schedule, and if nothing answers it blocks until the native
+ * timeout — 45s on iOS, and a held background thread on Android. Answering "no provider"
+ * immediately turns that into a fast, named failure instead of a stall.
+ */
+emitter.addListener('tokenRequest', (raw: object) => {
+  const r = raw as Record<string, unknown>;
+  const requestId = str(r.requestId);
+  const request: TokenRequest = {
+    resourceId: str(r.resourceId),
+    tenantId: str(r.tenantId),
+    authority: str(r.authority),
+    accountId: str(r.accountId),
+  };
+
+  const active = tokenProvider;
+  if (active === null) {
+    NativeIntune.rejectToken({
+      requestId,
+      reason:
+        "No token provider is registered. In authMode 'external' the app must call " +
+        'setTokenProvider() before enrolling.',
+    });
     return;
   }
-  if (tokenSubscription !== null) return;
 
-  tokenSubscription = emitter.addListener('tokenRequest', (raw: object) => {
-    const r = raw as Record<string, unknown>;
-    const requestId = str(r.requestId);
-    const request: TokenRequest = {
-      resourceId: str(r.resourceId),
-      tenantId: str(r.tenantId),
-      authority: str(r.authority),
-      accountId: str(r.accountId),
-    };
-
-    const active = tokenProvider;
-    if (active === null) {
-      NativeIntune.rejectToken({
-        requestId,
-        reason: 'no token provider registered',
-      });
-      return;
-    }
-
-    const respond = async () => {
-      try {
-        const token = await active(request);
-        if (typeof token === 'string' && token.length > 0) {
-          NativeIntune.resolveToken({ requestId, token });
-        } else {
-          NativeIntune.rejectToken({
-            requestId,
-            reason: 'token provider returned no token',
-          });
-        }
-      } catch (e) {
-        // The reason string reaches getDiagnostics and support logs, so it must not be
-        // the raw error object — that can carry a token in a nested response body.
+  const respond = async () => {
+    try {
+      const token = await active(request);
+      if (typeof token === 'string' && token.length > 0) {
+        NativeIntune.resolveToken({ requestId, token });
+      } else {
         NativeIntune.rejectToken({
           requestId,
-          reason: e instanceof Error ? e.message : 'token provider threw',
+          reason: 'token provider returned no token',
         });
       }
-    };
+    } catch (e) {
+      // The reason string reaches getDiagnostics and support logs, so it must not be
+      // the raw error object — that can carry a token in a nested response body.
+      NativeIntune.rejectToken({
+        requestId,
+        reason: e instanceof Error ? e.message : 'token provider threw',
+      });
+    }
+  };
 
-    // Nothing upstream can observe this promise — the SDK is waiting on the native
-    // side, and every failure path above already calls rejectToken.
-    respond().catch(() => {});
-  });
-}
+  // Nothing upstream can observe this promise — the SDK is waiting on the native side,
+  // and every failure path above already calls rejectToken.
+  respond().catch(() => {});
+});
 
 // ---------------------------------------------------------------- reset handler
 

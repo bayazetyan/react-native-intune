@@ -89,6 +89,50 @@ describe('accountId validation', () => {
   });
 });
 
+describe('enroll', () => {
+  it('passes a native rejection code through unchanged', async () => {
+    // Android cannot enroll without the account's UPN, and the named code is what makes
+    // that legible instead of an opaque SDK failure (SPEC §6.3).
+    const rejection = Object.assign(new Error('needs a UPN'), {
+      code: 'E_UPN_REQUIRED',
+    });
+    mockNative.enroll.mockRejectedValueOnce(rejection);
+
+    await expect(
+      Intune.enroll({ accountId: VALID_ACCOUNT_ID })
+    ).rejects.toMatchObject({ code: 'E_UPN_REQUIRED' });
+  });
+
+  it('decodes a timed-out enrollment as pending rather than a failure', async () => {
+    // The SDK has not failed, it has not answered — it keeps retrying on its own
+    // schedule. Reporting `failed` here would block a user the service never rejected.
+    mockNative.enroll.mockResolvedValueOnce({
+      status: 'pending',
+      accountId: VALID_ACCOUNT_ID,
+      nativeCode: 'RNIntuneTimeout',
+      nativeMessage: 'The SDK did not report a result within the timeout.',
+      restartRequired: false,
+    });
+
+    const result = await Intune.enroll({ accountId: VALID_ACCOUNT_ID });
+
+    expect(result.status).toBe(EnrollmentStatus.Pending);
+    expect(result.nativeCode).toBe('RNIntuneTimeout');
+  });
+});
+
+describe('setTokenProvider', () => {
+  it('accepts a provider and clears it again without touching native', () => {
+    // The provider is JS-side state; the native side only ever sees resolveToken /
+    // rejectToken in response to its own request (SPEC §13.4).
+    const provider = jest.fn(async () => 'token');
+    expect(() => Intune.setTokenProvider(provider)).not.toThrow();
+    expect(() => Intune.setTokenProvider(null)).not.toThrow();
+    expect(mockNative.resolveToken).not.toHaveBeenCalled();
+    expect(mockNative.rejectToken).not.toHaveBeenCalled();
+  });
+});
+
 describe('getState', () => {
   it('narrows a known reset stage and nulls an unknown one', async () => {
     mockNative.getState.mockResolvedValueOnce({
