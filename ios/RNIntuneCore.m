@@ -237,9 +237,9 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
 
 - (void)policyDidChange:(NSNotification *)notification
 {
-  // getPolicy() is not implemented yet — two of the five fields SPEC §4.3 asks for are
-  // not queryable on either platform (see the note in §4.3). The event still fires so a
-  // subscriber knows to re-read once it is.
+  // Carries `isManaged` only, on purpose. A policy has more fields than belong in an
+  // event payload, and the SDK gives no diff — so this says "something changed, re-read"
+  // and the subscriber calls getPolicy() (SPEC §4.3).
   [self emit:RNIntuneEventPolicyChanged
         body:@{
           @"isManaged" : @(IntuneMAMPolicyManager.instance.isManagementEnabled),

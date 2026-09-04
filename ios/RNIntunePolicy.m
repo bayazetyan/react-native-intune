@@ -7,6 +7,21 @@
 
 #import <IntuneMAMSwift/IntuneMAMSwift.h>
 
+/// Names the policy channel. An SDK update that adds a source must not produce a crash
+/// or an empty string, so anything unrecognised keeps its number.
+static NSString *RNIntunePolicySourceName(IntuneMAMPolicySource source)
+{
+  switch (source) {
+    case IntuneMAMPolicySource_MDM:
+      return @"MDM";
+    case IntuneMAMPolicySource_MAM:
+      return @"MAM";
+    case IntuneMAMPolicySource_Other:
+      return @"Other";
+  }
+  return [NSString stringWithFormat:@"Unknown(%ld)", (long)source];
+}
+
 @implementation RNIntunePolicy
 
 + (nullable NSDictionary<NSString *, id> *)snapshot
@@ -16,8 +31,28 @@
   }
 
   IntuneMAMPolicyManager *manager = IntuneMAMPolicyManager.instance;
-  id<IntuneMAMPolicy> policy = manager.policy;
-  BOOL managed = manager.isManagementEnabled;
+
+  // Ask for the *primary account's* policy, not `manager.policy`.
+  //
+  // `manager.policy` returns the policy for the current thread's identity, and no
+  // identity is set on the React Native JS thread — so the SDK answers with a default
+  // permissive policy object. It is not nil, which is what makes this so quiet: every
+  // field reads as "allowed" and the snapshot looks like a tenant with no restrictions.
+  // Found on device: an App Protection Policy with `Screen capture: Block` and Edge
+  // required still reported screenshots allowed and no managed browser.
+  //
+  // `primaryAccountId` is the single-identity accessor — the header says it is for
+  // applications that do not support multiple managed accounts, which is us by decision
+  // (SPEC §9). This is a read; it is not `setCurrentThreadAccountId`, and CLAUDE.md
+  // rule 10 still holds.
+  NSString *primaryAccountId = manager.primaryAccountId;
+  BOOL haveIdentity = primaryAccountId.length > 0;
+
+  id<IntuneMAMPolicy> policy = haveIdentity
+      ? [manager policyForAccountId:primaryAccountId]
+      : manager.policy;
+  BOOL managed = haveIdentity ? [manager isAccountIdManaged:primaryAccountId]
+                              : manager.isManagementEnabled;
 
   if (policy == nil) {
     // Unmanaged is not an error: an app with no policy is fully permissive, and
@@ -28,7 +63,10 @@
       @"canSaveToPersonal" : @YES,
       @"canOpenFromUnmanaged" : @YES,
       @"screenshotAllowed" : @YES,
-      @"raw" : @{},
+      @"raw" : @{
+        @"hasPrimaryAccount" : haveIdentity ? @"true" : @"false",
+        @"policySource" : RNIntunePolicySourceName(manager.mamPolicySource),
+      },
     };
   }
 
@@ -53,6 +91,12 @@
     @"isFileEncryptionRequired" : policy.isFileEncryptionRequired ? @"true" : @"false",
     @"notificationPolicy" :
         [NSString stringWithFormat:@"%ld", (long)policy.notificationPolicy],
+    // Diagnostic, not policy. An all-permissive snapshot means one of two things, and
+    // these two values say which: no identity resolved, or a policy that came from
+    // somewhere other than the MAM channel. Boolean only — the account ID itself must
+    // not travel here (CLAUDE.md rule 3).
+    @"hasPrimaryAccount" : haveIdentity ? @"true" : @"false",
+    @"policySource" : RNIntunePolicySourceName(manager.mamPolicySource),
   };
 
   return @{
