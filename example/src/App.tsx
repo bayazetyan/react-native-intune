@@ -12,6 +12,7 @@ import Intune, {
   type BrokerStatus,
   type Diagnostics,
   type IntuneState,
+  type PolicySnapshot,
 } from 'react-native-intune';
 
 /**
@@ -38,6 +39,7 @@ export default function App() {
   const [broker, setBroker] = useState<BrokerStatus | null>(null);
   const [state, setState] = useState<IntuneState | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
+  const [policy, setPolicy] = useState<PolicySnapshot | null>(null);
   const [configureResult, setConfigureResult] = useState('not called');
   const [enrollResult, setEnrollResult] = useState('not called');
   const [tokenAsked, setTokenAsked] = useState('never');
@@ -53,6 +55,11 @@ export default function App() {
       setDiagnostics(await Intune.getDiagnostics());
     } catch {
       setDiagnostics(null);
+    }
+    try {
+      setPolicy(await Intune.getPolicy());
+    } catch {
+      setPolicy(null);
     }
   }, []);
 
@@ -139,10 +146,14 @@ export default function App() {
       Intune.onWipeRequested(({ accountId }) =>
         console.log('wipeRequested', accountId)
       ),
-      Intune.onEnrollmentResult((r) =>
-        console.log('enrollmentResult', r.status)
-      ),
-      Intune.onPolicyChanged(() => console.log('policyChanged')),
+      Intune.onEnrollmentResult((r) => {
+        console.log('enrollmentResult', r.status);
+        refresh().catch(() => {});
+      }),
+      Intune.onPolicyChanged(() => {
+        console.log('policyChanged');
+        refresh().catch(() => {});
+      }),
       Intune.onRestartRequired(({ reason }) =>
         console.log('restartRequired', reason)
       ),
@@ -232,6 +243,34 @@ export default function App() {
           <Row label="enrolled" value={state.enrolledAccountId ?? '—'} />
           <Row label="status" value={state.status ?? '—'} />
           <Row label="pendingReset" value={state.pendingReset ?? '—'} />
+        </>
+      )}
+
+      <Text style={styles.section}>getPolicy</Text>
+      <View style={styles.buttons}>
+        <Button label="re-read policy" onPress={() => void refresh()} />
+      </View>
+      {policy === null ? (
+        <Row label="" value="—" />
+      ) : (
+        <>
+          <Row label="isManaged" value={String(policy.isManaged)} />
+          <Row label="canSaveToLocal" value={String(policy.canSaveToLocal)} />
+          <Row
+            label="canSaveToPersonal"
+            value={String(policy.canSaveToPersonal)}
+          />
+          <Row
+            label="canOpenFromUnmanaged"
+            value={String(policy.canOpenFromUnmanaged)}
+          />
+          <Row
+            label="screenshotAllowed"
+            value={String(policy.screenshotAllowed)}
+          />
+          {Object.entries(policy.raw).map(([k, v]) => (
+            <Row key={k} label={`raw.${k}`} value={v} />
+          ))}
         </>
       )}
 
