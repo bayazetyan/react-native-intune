@@ -404,7 +404,7 @@ When none of that explains it, please include: platform and OS version, React Na
 
 ## Testing against your own tenant
 
-The example app enrolls against a real tenant; there is no way to test enrollment without one. [`SPEC.md` Appendix A](./SPEC.md#14-appendix-a-test-environment-setup) is a step-by-step walkthrough of the Entra and Intune consoles: registering the app, granting the MAM permission, creating the four test users you need to reach every result code, and targeting a policy at a custom app by bundle ID.
+The example app enrolls against a real tenant; there is no way to test enrollment without one. [`docs/tenant-setup.md`](./docs/tenant-setup.md) is a step-by-step walkthrough of the Entra and Intune consoles: registering the app, granting the MAM permission, creating the four test users you need to reach every result code, and targeting a policy at a custom app by bundle ID. Each phase ends with a way to check it actually worked.
 
 You do **not** need to publish to a store, add the app to Intune's catalogue, enrol any devices, or register with Microsoft's app partner programme.
 
