@@ -22,6 +22,16 @@ internal data class RNIntuneConfig(
   val strictMode: Boolean,
   val telemetryEnabled: Boolean,
 ) {
+  /**
+   * `builtin` means the module owns MSAL and `signIn()` works; `external` means the host
+   * app does and every auth method rejects with `E_EXTERNAL_AUTH_MODE` (SPEC §3.2).
+   *
+   * An unrecognised value is treated as `builtin`, matching the public default — a typo
+   * must not silently disable the sign-in the app is relying on.
+   */
+  val builtinAuth: Boolean
+    get() = authMode != "external"
+
   companion object {
     fun from(map: ReadableMap): RNIntuneConfig =
       RNIntuneConfig(

@@ -136,6 +136,18 @@ object RNIntuneAuthCallback {
       return null
     }
 
+    // `builtin`: the module owns MSAL, so answer from it and never involve JS. This is
+    // the Android counterpart of not claiming the token delegate on iOS — same rule,
+    // opposite mechanics, because here the callback is mandatory and the SDK always asks.
+    // Doing it this way also keeps the MAM token off the bridge entirely (rule 9).
+    val own = target.mamServiceToken(resourceId)
+    if (own != null) {
+      return own
+    }
+
+    // `external`, or `builtin` with nothing cached yet: fall through to the host app's
+    // provider. Returning null from here is the SDK's documented "cannot get a token
+    // right now" and maps to AUTHORIZATION_NEEDED, not a hard failure — the SDK retries.
     val requestId = "tok-${counter.incrementAndGet()}"
     val slot = PendingToken()
     pending[requestId] = slot

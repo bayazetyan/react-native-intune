@@ -31,6 +31,9 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
 
   private var config: RNIntuneConfig? = null
 
+  /** MSAL. Built at configure time in `builtin` mode only (SPEC §3.2). */
+  private val auth = RNIntuneAuth(reactContext)
+
   /** Held so they can be unregistered; also proves the plugin processed the app. */
   private var registrations: List<RNIntuneNotifications.Registration> = emptyList()
 
@@ -125,7 +128,31 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
     // callback is not registered here either — it has to be in place from
     // Application.onMAMCreate, long before this method can run, so it is the consumer's
     // wiring and we only supply the class (SPEC §6.1.2).
-    promise.resolve(null)
+
+    if (!incoming.builtinAuth) {
+      // `external`: the host app owns MSAL. Building a second client here would put two
+      // caches in one binary, which is the thing that mode exists to avoid (SPEC §3.2).
+      promise.resolve(null)
+      return
+    }
+
+    // Off the main thread: creating the MSAL client writes the config file and does
+    // network setup, and the blocking factory is the one that reports failure usefully.
+    Thread {
+      try {
+        auth.configure(incoming.clientId, incoming.authority, incoming.redirectUri)
+        promise.resolve(null)
+      } catch (e: Throwable) {
+        // Loud here rather than at the first sign-in, where the cause is much harder to
+        // see. A redirect URI whose signature hash does not match the registration is
+        // the common one.
+        this.config = null
+        promise.reject(
+          ERR_NATIVE,
+          "MSAL could not be initialised: ${e.message ?: "unknown reason"}",
+        )
+      }
+    }.start()
   }
 
   override fun isSupported(promise: Promise) {
@@ -176,17 +203,100 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
 
   // ------------------------------------------------------------------ auth
 
-  override fun signIn(params: ReadableMap, promise: Promise) = notConfigured("signIn", promise)
+  /** Returns false and rejects when the caller may not use the built-in MSAL. */
+  private fun authReady(method: String, promise: Promise): Boolean {
+    if (config == null) {
+      notConfigured(method, promise)
+      return false
+    }
+    if (config?.builtinAuth != true) {
+      promise.reject(
+        ERR_EXTERNAL_AUTH_MODE,
+        "$method is unavailable in authMode 'external'. The host app owns MSAL there; " +
+          "supply the account id to enroll() and answer tokenRequest via " +
+          "setTokenProvider.",
+      )
+      return false
+    }
+    return true
+  }
 
-  override fun signInSilent(params: ReadableMap, promise: Promise) =
-    notConfigured("signInSilent", promise)
+  private fun scopesOf(params: ReadableMap): List<String> {
+    val array = runCatching { params.getArray("scopes") }.getOrNull() ?: return emptyList()
+    return (0 until array.size()).mapNotNull { array.getString(it) }
+  }
 
-  override fun acquireToken(params: ReadableMap, promise: Promise) =
-    notConfigured("acquireToken", promise)
+  override fun signIn(params: ReadableMap, promise: Promise) {
+    if (!authReady("signIn", promise)) return
+    val scopes = scopesOf(params)
+    val loginHint = params.getString("loginHint")
+    val prompt = params.getString("prompt")
 
-  override fun getAccounts(promise: Promise) = notConfigured("getAccounts", promise)
+    // Off the JS thread: with an account already signed in this tries the cache first,
+    // and that call blocks. MSAL puts its own UI on the main thread itself.
+    Thread {
+      auth.signIn(
+        scopes = scopes,
+        loginHint = loginHint,
+        prompt = prompt,
+        onResult = { promise.resolve(it) },
+        onError = { code, message -> promise.reject(code, message) },
+      )
+    }.start()
+  }
 
-  override fun signOut(params: ReadableMap, promise: Promise) = notConfigured("signOut", promise)
+  override fun signInSilent(params: ReadableMap, promise: Promise) {
+    if (!authReady("signInSilent", promise)) return
+    Thread {
+      auth.acquireTokenSilent(
+        scopes = scopesOf(params),
+        forceRefresh = false,
+        onResult = { promise.resolve(it) },
+        onError = { code, message -> promise.reject(code, message) },
+      )
+    }.start()
+  }
+
+  override fun acquireToken(params: ReadableMap, promise: Promise) {
+    if (!authReady("acquireToken", promise)) return
+    val forceRefresh =
+      runCatching { params.getBoolean("forceRefresh") }.getOrDefault(false)
+    Thread {
+      auth.acquireTokenSilent(
+        scopes = scopesOf(params),
+        forceRefresh = forceRefresh,
+        onResult = { promise.resolve(it) },
+        onError = { code, message -> promise.reject(code, message) },
+      )
+    }.start()
+  }
+
+  override fun getAccounts(promise: Promise) {
+    if (!authReady("getAccounts", promise)) return
+    Thread {
+      val out = Arguments.createArray()
+      auth.accounts().forEach { out.pushMap(it) }
+      promise.resolve(out)
+    }.start()
+  }
+
+  override fun signOut(params: ReadableMap, promise: Promise) {
+    if (!authReady("signOut", promise)) return
+    val wipeIntune = runCatching { params.getBoolean("wipeIntune") }.getOrDefault(false)
+
+    // Off the main thread: with a wipe this runs the whole reset sequence, whose
+    // unregister blocks (SPEC §5.3, §12.5).
+    Thread {
+      if (wipeIntune) {
+        // Order matters and is the reason this lives in one place: unregister first,
+        // then clear MSAL. Reversed, the unregister loses the token it needs.
+        doReset(wipe = true, reason = "logout")
+      } else {
+        auth.signOutQuietly()
+      }
+      promise.resolve(null)
+    }.start()
+  }
 
   // ------------------------------------------------------------------ enrollment
 
@@ -237,6 +347,20 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
       return
     }
 
+    // Already registered? Answer now.
+    //
+    // `registerAccountForMAM` for a known account is a no-op that fires **no**
+    // notification — the SDK logs "skipping already registered account" and returns. The
+    // promise below would then wait for a result that is never coming and settle as
+    // `pending` at the timeout, which is both slow and untrue. Observed on device.
+    val known = runCatching { manager.getRegisteredAccountStatus(upn, accountId) }.getOrNull()
+    if (known != null) {
+      registeredAccountId = accountId
+      registeredUpn = upn
+      promise.resolve(RNIntuneNotifications.resultFrom(known, accountId))
+      return
+    }
+
     // Held against the account ID and settled from the notification receiver. The call
     // below returns immediately and says nothing about the outcome (SPEC §12.5).
     synchronized(pendingEnrollments) {
@@ -264,7 +388,15 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
    * the `upn` parameter is documented as `external`-mode only rather than as the normal
    * way to call this.
    */
-  private fun knownUpnFor(@Suppress("UNUSED_PARAMETER") accountId: String): String? = null
+  /**
+   * The UPN for an account id, from the module's own MSAL sign-in.
+   *
+   * `registerAccountForMAM` needs both and will not take a null UPN, while the public API
+   * deliberately carries only the object ID (SPEC §6.3). In `external` mode there is no
+   * MSAL here to ask, and the caller passes `upn` explicitly.
+   */
+  private fun knownUpnFor(accountId: String): String? =
+    if (config?.builtinAuth == true) auth.upnFor(accountId) else null
 
   private fun scheduleEnrollTimeout(accountId: String) {
     timeoutHandler.postDelayed({
@@ -342,32 +474,33 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
    * sequence across the death.
    */
   override fun reset(params: ReadableMap, promise: Promise) {
+    doReset(params.getBoolean("wipe"), params.getString("reason").orEmpty())
+    promise.resolve(null)
+  }
+
+  /** Shared by `reset` and `signOut({ wipeIntune: true })`, so the order cannot diverge. */
+  private fun doReset(wipe: Boolean, reason: String) {
     RNIntuneReset.run(
       context = reactContext,
       accountId = registeredAccountId,
       upn = registeredUpn,
       tenantId = config?.tenantId,
-    // Already registered? Answer now.
-    //
-    // `registerAccountForMAM` for a known account is a no-op that fires **no**
-    // notification — the SDK logs "skipping already registered account" and returns. The
-    // promise below would then wait for a result that is never coming and settle as
-    // `pending` at the timeout, which is both slow and untrue. Observed on device.
-    val known = runCatching { manager.getRegisteredAccountStatus(upn, accountId) }.getOrNull()
-    if (known != null) {
-      registeredAccountId = accountId
-      registeredUpn = upn
-      promise.resolve(RNIntuneNotifications.resultFrom(known, accountId))
-      return
+      wipe = wipe,
+      reason = reason,
+    )
+
+    // MSAL cache cleanup, after the unregister above and never before it: that call needs
+    // an Intune token which comes from this cache, so clearing it first would strand a
+    // registered account (SPEC §7 step 4). Skipped in `external`, where the cache is the
+    // host app's.
+    if (config?.builtinAuth == true) {
+      auth.signOutQuietly()
+      auth.invalidate()
     }
 
-      wipe = params.getBoolean("wipe"),
-      reason = params.getString("reason").orEmpty(),
-    )
     config = null
     registeredAccountId = null
     registeredUpn = null
-    promise.resolve(null)
   }
 
   override fun completeReset(promise: Promise) {
@@ -452,6 +585,15 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
 
   override fun removeListeners(count: Double) = events.removeListeners(count.toInt())
 
+  /**
+   * A MAM service token from the module's own MSAL, or null when this is not our job.
+   *
+   * Null in `external` mode, where the host app owns MSAL and answers the JS
+   * `tokenRequest` instead. Called on the SDK's background thread and blocks it.
+   */
+  internal fun mamServiceToken(resourceId: String): String? =
+    if (config?.builtinAuth == true) auth.mamServiceToken(resourceId) else null
+
   /** Called by the auth callback from the SDK's own background thread. */
   internal fun emitTokenRequest(
     requestId: String,
@@ -500,6 +642,19 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
    * tenant. Deprecated here means "superseded", not "removed".
    */
   @Suppress("DEPRECATION")
+  /**
+   * The SDK's view of an account's enrollment.
+   *
+   * `getRegisteredAccountStatus(upn, oid)` — the order verified from bytecode, not
+   * documentation: the offline implementation checks its *second* argument and warns
+   * "called without valid OID", then calls `MAMIdentityManager.create(arg1, arg2)`.
+   * Passing the object ID alone lands it in the UPN slot and the registry answers "not
+   * registered" for an account that is — observed on device as
+   * `getAccountInfo() called for account that is not registered: <oid>;<null>`.
+   *
+   * The UPN comes from the SDK rather than from this object's fields, because those are
+   * in memory and a status read after a restart would otherwise silently miss.
+   */
   private fun readStatus(accountId: String): MAMEnrollmentManager.Result? =
     runCatching {
       val manager = MAMComponents.get(MAMEnrollmentManager::class.java) ?: return@runCatching null
@@ -540,14 +695,28 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
     private const val COMPANY_PORTAL_PACKAGE = "com.microsoft.windowsintune.companyportal"
 
     // Stable rejection codes (SPEC §13.6). Never surface a raw platform error to JS.
-    private const val ERR_NOT_CONFIGURED = "E_NOT_CONFIGURED"
+    // internal, not private: RNIntuneAuth rejects with the same vocabulary and there must
+    // be exactly one definition of each string (SPEC §13.6).
+    internal const val ERR_NOT_CONFIGURED = "E_NOT_CONFIGURED"
     private const val ERR_RESET_REQUIRED = "E_RESET_REQUIRED"
     private const val ERR_SDK_UNAVAILABLE = "E_SDK_UNAVAILABLE"
     private const val ERR_INVALID_ACCOUNT_ID = "E_INVALID_ACCOUNT_ID"
     private const val ERR_UPN_REQUIRED = "E_UPN_REQUIRED"
     private const val ERR_RESET_IN_PROGRESS = "E_RESET_IN_PROGRESS"
     private const val ERR_NOT_NEEDED = "E_NOT_NEEDED"
-    private const val ERR_NATIVE = "E_NATIVE"
+    internal const val ERR_NATIVE = "E_NATIVE"
+
+    // MSAL outcomes that are ordinary control flow, not faults.
+    internal const val ERR_INTERACTION_REQUIRED = "E_INTERACTION_REQUIRED"
+    internal const val ERR_USER_CANCELLED = "E_USER_CANCELLED"
+    internal const val ERR_EXTERNAL_AUTH_MODE = "E_EXTERNAL_AUTH_MODE"
+
+    /**
+     * Android-only. React Native outlives its Activity, so an interactive sign-in can be
+     * asked for when there is no window to present it in — a real state, not a
+     * formality, and one the app can recover from by retrying from a mounted screen.
+     */
+    internal const val ERR_NO_ACTIVITY = "E_NO_ACTIVITY"
 
     /**
      * Generous on purpose: enrollment involves a token acquisition and a service round
@@ -556,16 +725,3 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
     private const val ENROLL_TIMEOUT_MS = 90_000L
   }
 }
-  /**
-   * The SDK's view of an account's enrollment.
-   *
-   * `getRegisteredAccountStatus(upn, oid)` — the order verified from bytecode, not
-   * documentation: the offline implementation checks its *second* argument and warns
-   * "called without valid OID", then calls `MAMIdentityManager.create(arg1, arg2)`.
-   * Passing the object ID alone lands it in the UPN slot and the registry answers "not
-   * registered" for an account that is — observed on device as
-   * `getAccountInfo() called for account that is not registered: <oid>;<null>`.
-   *
-   * The UPN comes from the SDK rather than from this object's fields, because those are
-   * in memory and a status read after a restart would otherwise silently miss.
-   */

@@ -55,9 +55,11 @@ internal object RNIntuneReset {
     // Reached only if the process survived.
     RNIntuneResetJournal.advance(context, RNIntuneResetJournal.STAGE_CLEANING_AUTH)
 
-    // MSAL cache cleanup belongs here. SPEC §7 step 4 still says the host app does it
-    // because the module does not own MSAL — that predates §3, which decided it does.
-    // In 'builtin' it becomes ours with S-3; in 'external' it stays the host app's.
+    // MSAL cache cleanup happens in RNIntuneModule.doReset, immediately after this
+    // returns, and not here: this object has no MSAL client and should not grow a
+    // dependency on one — it owns the order of operations, not the pieces. What matters
+    // is that it comes *after* the unregister above, because that call needs an Intune
+    // token which comes from the very cache being cleared (SPEC §7 step 4).
 
     RNIntuneResetJournal.advance(context, RNIntuneResetJournal.STAGE_CLEANING_LOCAL)
   }

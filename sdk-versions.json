@@ -48,7 +48,12 @@
       "A version bump forces a conscious check against the MAM compatibility matrix and the",
       "host app's toolchain (SPEC.md O-E).",
       "",
-      "msal_ios is exact, not a range: the Intune SDK does not carry its own MSAL, it drives",
+      "msal_android has no requirement from Microsoft to satisfy. The Android SDK guide says",
+    "only \"integrate MSAL\" and links the MSAL repository, unlike iOS where the coupling is",
+    "hard. So this is our choice, pinned for reproducibility rather than compatibility:",
+    "8.4.2, the current stable, released 2026-08-21.",
+    "",
+    "msal_ios is exact, not a range: the Intune SDK does not carry its own MSAL, it drives",
       "the app's. Two consumers on different MSALs is the same hazard pinning the Intune SDK",
       "exists to prevent. Resolved by CocoaPods on 2026-09-04, not guessed.",
       "",
@@ -59,7 +64,7 @@
     ],
     "javassist": "3.29.2-GA",
     "msal_ios": "2.15.0",
-    "msal_android": "TODO — pin after the auth spike (SPEC.md S-3)",
+    "msal_android": "8.4.2",
     "requires": { "android": "16", "gradle": "8.11.1", "agp": "8.9.1", "kotlin": "2.1.21", "java": "17" }
   }
 }
