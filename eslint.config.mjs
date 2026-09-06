@@ -24,6 +24,16 @@ export default defineConfig([
     },
   },
   {
-    ignores: ['node_modules/', 'lib/'],
+    ignores: [
+      'node_modules/',
+      'lib/',
+      // Native build output. Gradle stages a generated js-bridge.js into
+      // example/android/app/build, and eslint was reporting 168 problems in it —
+      // Microsoft's code, in a directory git already ignores.
+      '**/android/build/',
+      '**/android/app/build/',
+      '**/ios/Pods/',
+      'example/ios/build/',
+    ],
   },
 ]);
