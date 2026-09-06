@@ -27,7 +27,6 @@ extern NSString *const RNIntuneErrorResetInProgress;
 /// MSAL outcomes that are ordinary control flow, not faults (SPEC §13.6).
 extern NSString *const RNIntuneErrorInteractionRequired;
 extern NSString *const RNIntuneErrorUserCancelled;
-extern NSString *const RNIntuneErrorNoAccount;
 /// Raised by the configure-time assertions below. Not in SPEC §13.6 yet — see §12.7 S1.
 extern NSString *const RNIntuneErrorPlistConflict;
 

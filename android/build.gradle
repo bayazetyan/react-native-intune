@@ -91,4 +91,25 @@ dependencies {
   implementation "com.facebook.react:react-android"
 
   implementation files(mamAar)
+
+  // MSAL. Mirrored in sdk-versions.json -> toolchain.msal_android; change both together.
+  //
+  // Unlike iOS, Microsoft states no required version for Android — the SDK guide says
+  // only "integrate MSAL". So this pin is ours, for reproducibility rather than
+  // compatibility, and it is exact for the same reason the iOS one is: two MSAL versions
+  // in one binary is a failure mode nobody debugs quickly.
+  //
+  // mavenCentral, never jcenter — Microsoft's own docs still say jcenter in places and it
+  // has been read-only for years (CLAUDE.md, Android gotchas).
+  // `display-mask` is excluded deliberately. MSAL depends on it for dual-screen Surface
+  // Duo layout, and it is published only to Microsoft's own Azure DevOps feed, not Maven
+  // Central. MSAL's README tells apps to add that feed — but repositories are declared by
+  // the *consumer's* settings.gradle, so a library cannot add one, and requiring every
+  // consumer to trust an extra feed is a poor trade for dual-screen support.
+  //
+  // [verify] whether MSAL degrades cleanly without it, or throws at sign-in on a real
+  // device. If it throws, the fallback is documenting the feed for consumers.
+  implementation("com.microsoft.identity.client:msal:8.4.2") {
+    exclude group: "com.microsoft.device.display"
+  }
 }

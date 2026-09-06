@@ -26,7 +26,6 @@ NSString *const RNIntuneErrorTokenProviderMissing = @"E_TOKEN_PROVIDER_MISSING";
 NSString *const RNIntuneErrorResetInProgress = @"E_RESET_IN_PROGRESS";
 NSString *const RNIntuneErrorInteractionRequired = @"E_INTERACTION_REQUIRED";
 NSString *const RNIntuneErrorUserCancelled = @"E_USER_CANCELLED";
-NSString *const RNIntuneErrorNoAccount = @"E_NO_ACCOUNT";
 NSString *const RNIntuneErrorPlistConflict = @"E_PLIST_CONFLICT";
 
 NSString *const RNIntuneEventEnrollmentResult = @"enrollmentResult";
