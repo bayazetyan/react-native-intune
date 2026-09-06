@@ -3,7 +3,9 @@ package com.reactnativeintune
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.WritableMap
+import com.microsoft.intune.mam.client.app.MAMComponents
 import com.microsoft.intune.mam.client.identity.MAMPolicyManager
+import com.microsoft.intune.mam.policy.MAMUserInfo
 import com.microsoft.intune.mam.policy.OpenLocation
 import com.microsoft.intune.mam.policy.SaveLocation
 
@@ -23,25 +25,43 @@ import com.microsoft.intune.mam.policy.SaveLocation
 internal object RNIntunePolicy {
 
   fun snapshot(context: ReactApplicationContext, accountId: String?): WritableMap {
-    val policy = runCatching { MAMPolicyManager.getPolicy(context) }.getOrNull()
-      ?: return unmanaged()
+    // Ask the SDK who the primary user is rather than relying only on the account id the
+    // caller happens to be holding: that one lives in memory and is gone after a restart,
+    // while the SDK's survives — and a policy read that silently loses its identity is
+    // exactly the failure fixed on iOS.
+    val primaryOid = runCatching { MAMComponents.get(MAMUserInfo::class.java)?.primaryUserOID }
+      .getOrNull()
+      ?.takeIf { it.isNotEmpty() }
+    val oid = accountId ?: primaryOid
+
+    // `getPolicy(context)` never returns null — with no identity it answers with a
+    // default *permissive* policy. So it cannot be used to decide whether the app is
+    // managed, and `isManaged` must not be hardcoded from it being non-null. Observed on
+    // device: a fresh install that had never enrolled reported `isManaged: true`.
+    val policy = runCatching {
+      if (oid != null) MAMPolicyManager.getPolicyForIdentityOID(oid)
+      else MAMPolicyManager.getPolicy(context)
+    }.getOrNull() ?: return unmanaged(primaryOid != null)
+
+    val managed = oid != null &&
+      runCatching { MAMPolicyManager.getIsIdentityOIDManaged(oid) }.getOrDefault(false)
 
     return Arguments.createMap().apply {
-      putBoolean("isManaged", true)
+      putBoolean("isManaged", managed)
       putBoolean(
         "canSaveToLocal",
-        policy.getIsSaveToLocationAllowedForOID(SaveLocation.LOCAL, accountId),
+        policy.getIsSaveToLocationAllowedForOID(SaveLocation.LOCAL, oid),
       )
       // Not getIsSaveToPersonalAllowed(), which is deprecated — and the location form is
       // what iOS uses too (isSaveToAllowedForLocation:Other), so both platforms answer
       // the same question.
       putBoolean(
         "canSaveToPersonal",
-        policy.getIsSaveToLocationAllowedForOID(SaveLocation.OTHER, accountId),
+        policy.getIsSaveToLocationAllowedForOID(SaveLocation.OTHER, oid),
       )
       putBoolean(
         "canOpenFromUnmanaged",
-        policy.getIsOpenFromLocationAllowedForOID(OpenLocation.OTHER, accountId),
+        policy.getIsOpenFromLocationAllowedForOID(OpenLocation.OTHER, oid),
       )
       putBoolean("screenshotAllowed", policy.isScreenCaptureAllowed)
       // Everything else the SDK reports. Explicitly outside semver: anything depended on
@@ -58,6 +78,10 @@ internal object RNIntunePolicy {
             "fileEncryptionInUse",
             policy.diagnosticIsFileEncryptionInUse().toString(),
           )
+          // Diagnostic, not policy: an all-permissive snapshot means either no identity
+          // resolved or a genuinely unrestricted tenant, and this says which. Boolean
+          // only — the account id itself must not travel here (CLAUDE.md rule 3).
+          putString("hasPrimaryAccount", (primaryOid != null).toString())
         },
       )
     }
@@ -67,13 +91,18 @@ internal object RNIntunePolicy {
    * An app with no policy is fully permissive. Reporting `false` everywhere would hide
    * functionality that nothing is restricting.
    */
-  private fun unmanaged(): WritableMap =
+  private fun unmanaged(hasPrimaryAccount: Boolean = false): WritableMap =
     Arguments.createMap().apply {
       putBoolean("isManaged", false)
       putBoolean("canSaveToLocal", true)
       putBoolean("canSaveToPersonal", true)
       putBoolean("canOpenFromUnmanaged", true)
       putBoolean("screenshotAllowed", true)
-      putMap("raw", Arguments.createMap())
+      putMap(
+        "raw",
+        Arguments.createMap().apply {
+          putString("hasPrimaryAccount", hasPrimaryAccount.toString())
+        },
+      )
     }
 }
