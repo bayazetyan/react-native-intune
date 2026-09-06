@@ -62,6 +62,22 @@ internal object RNIntuneNotifications {
       null -> UNKNOWN
     }
 
+  /**
+   * An `EnrollmentResult` built from a status the SDK already holds, rather than from a
+   * notification.
+   *
+   * Needed because `registerAccountForMAM` on an already-registered account is a silent
+   * no-op: no notification is ever posted, so `enroll()` has to answer from the registry
+   * or wait for a result that is not coming.
+   */
+  fun resultFrom(status: MAMEnrollmentManager.Result, accountId: String? = null): WritableMap =
+    result(
+      status = unifiedStatus(status),
+      accountId = accountId,
+      nativeCode = status.name,
+      nativeMessage = "Read from the registry; the account was already registered.",
+    )
+
   /** Shapes an `EnrollmentResult` (SPEC §4.1). */
   private fun result(
     status: String,

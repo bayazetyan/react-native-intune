@@ -40,11 +40,15 @@ internal object RNIntuneReset {
 
     if (upn != null) {
       val manager = MAMComponents.get(MAMEnrollmentManager::class.java)
-      // Deprecated in favour of a two-argument overload whose second parameter cannot be
-      // identified from the AAR — same [verify] as readStatus in the module. Deprecated
-      // here means superseded, not removed.
-      @Suppress("DEPRECATION")
-      runCatching { manager?.unregisterAccountForMAM(upn) }
+      // `unregisterAccountForMAM(upn, oid)`. The second parameter is the object ID —
+      // identified from bytecode, not documentation: the offline implementation checks
+      // its second argument and warns "called without valid OID; identity may be
+      // ambiguous", then calls `MAMIdentityManager.create(arg1, arg2)`.
+      //
+      // The single-argument form is not merely deprecated, it is worse: it leaves the
+      // identity ambiguous, and that warning was visible in logcat on a real device
+      // before this was fixed. `getRegisteredAccountStatus` has the same shape.
+      runCatching { manager?.unregisterAccountForMAM(upn, accountId.orEmpty()) }
         .onFailure { Log.w(TAG, "unregisterAccountForMAM failed: ${it.message}") }
     }
 
