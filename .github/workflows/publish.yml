@@ -41,11 +41,12 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Registry auth
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version-file: .nvmrc
-          registry-url: 'https://registry.npmjs.org'
+      # There is no registry-auth step. `registry-url` on setup-node is what writes an
+      # .npmrc reading ${NODE_AUTH_TOKEN}, and with trusted publishing that file is not
+      # wanted: npm exchanges this workflow's OIDC token for a short-lived publish grant.
+      # A stored token beside it would only be a second way to authenticate that npm might
+      # pick instead — and token publishing that bypasses 2FA is what npm is restricting.
+      # `./.github/actions/setup` already installs the Node version from .nvmrc.
 
       # A tag that disagrees with package.json publishes a version nobody asked for, under
       # a tag that then points at the wrong commit forever.
@@ -114,7 +115,6 @@ jobs:
           else
             echo "::warning::repository is private — publishing without provenance"
           fi
+          echo "npm $(npm --version) — trusted publishing needs 11.5.1 or newer"
           echo "npm publish $args"
           npm publish $args
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
