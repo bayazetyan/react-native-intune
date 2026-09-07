@@ -60,8 +60,8 @@ See [`NOTICE`](./NOTICE) for the full statement.
 | | |
 |---|---|
 | React Native | 0.74+, **New Architecture required** (TurboModules) |
-| iOS | 16.0+, Xcode 16+ |
-| Android | minSdk 24, Java 17, AGP/Gradle/Kotlin per the [MAM SDK compatibility matrix](https://learn.microsoft.com/en-us/intune/developer/app-sdk/android-phase-3) |
+| iOS | **17.0+, Xcode 26+.** Not a preference — MAM SDK 21.x is built against them (`minos 17.0`, `sdk 26.2`, read from the binary). An app that must support iOS 16 has to pin MAM SDK 20.x, which Microsoft maintains for high-priority security fixes only |
+| Android | minSdk 24, compileSdk 36, Java 17 — and **Gradle 8.11.1 / AGP 8.9.1 / Kotlin 2.1.21**, the [compatibility matrix](https://learn.microsoft.com/en-us/intune/developer/app-sdk/android-phase-3) row the pinned MAM SDK is tested on. Your app module must land on the same row, because that is where the MAM plugin runs; `doctor` compares yours against it |
 | Auth | **Included.** MSAL with broker support ships with this library. If your app already has its own MSAL, use `authMode: 'external'` — see [Authentication](#authentication) |
 | Android runtime | The **Intune Company Portal** app must be installed on the device. There is no workaround |
 | Entra | An app registration per tenant, with the Intune MAM API permission granted |
@@ -136,7 +136,19 @@ npx react-native-intune setup    # applies what can be applied, shows a diff fir
 
 6. **SwiftUI apps:** ensure `UIApplicationSceneManifest` → `UISceneConfigurations` is present and non-empty. If it is missing, the SDK will not protect your app even when policy applies successfully.
 
-7. Embed settings: select **Embed & Sign** for the vendored frameworks in your app target, and **Do Not Embed** for any extensions.
+7. **`MaxFileProtectionLevel`, if your app reads its own files while the screen is locked.** The SDK's default is `NSFileProtectionComplete`, which makes protected files unreadable roughly ten seconds after the device locks — enough to break a local database, a background sync, or anything on a timer.
+
+   ```xml
+   <key>IntuneMAMSettings</key>
+   <dict>
+     <key>MaxFileProtectionLevel</key>
+     <string>NSFileProtectionCompleteUntilFirstUserAuthentication</string>
+   </dict>
+   ```
+
+   This key has **no runtime equivalent** — the SDK reads it at launch. Passing `maxFileProtectionLevel` to `configure()` without the matching plist key is therefore rejected with `E_PLIST_CONFLICT` rather than silently ignored, because an option that appears to be set and is not is how an app ships with an unreadable database. The Expo plugin writes the key for you from the `maxFileProtectionLevel` prop.
+
+8. Embed settings: select **Embed & Sign** for the vendored frameworks in your app target, and **Do Not Embed** for any extensions.
 
 ### Android
 
@@ -308,6 +320,14 @@ async function reconcile() {
 }
 ```
 
+**What is and is not verified here.** Every branch above except one has been run on a
+physical device against a real tenant: the interrupted-reset resume, Intune being switched
+off, and enrolling from cold. The `tenantId` branch has been verified only for the case
+where the reset is followed by reconfiguring **the same** tenant. Moving an installed app
+from one tenant to another has not been tested, because it needs a second tenant we do not
+have — the runtime overrides the SDK keeps do persist across restarts, which is what makes
+the case worth testing rather than assuming. Treat that one path as unproven.
+
 ---
 
 ## Enrollment result codes
@@ -396,7 +416,7 @@ Most reports against libraries like this are environment problems. Please check,
 6. Is the missing PIN prompt actually the **shared global PIN timer**? The PIN is shared across all managed apps on the device and won't be requested on every launch. Restarting the device resets the timer.
 7. Did the process terminate after an unregister? **That is expected**, not a crash.
 8. Are other SDK-integrated apps (Outlook, Teams, OneDrive) or the brokers on the device changing what you observe? Microsoft's own test guidance is to remove them.
-9. Did the Gradle plugin's HTML report (`build/outputs/logs`, with `report = true`) show the replacements you expected?
+9. Did the Gradle plugin's HTML report show the replacements you expected? It lands in `android/app/build/outputs/intune/<variant>/logs/IntuneMAMBuildReport.html`, with one HTML file per rewritten class beside it. Microsoft's docs say `build/outputs/logs`; that is not where it goes.
 
 When none of that explains it, please include: platform and OS version, React Native version, this library's version, the pinned MAM SDK version, whether Company Portal is installed, whether the account is licensed and targeted, and the `nativeCode` / `nativeMessage` from the result.
 
