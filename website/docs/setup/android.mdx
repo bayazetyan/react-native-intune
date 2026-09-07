@@ -1,0 +1,77 @@
+---
+id: android
+title: Android setup
+sidebar_position: 2
+---
+
+Five steps, in order. The Gradle plugin rewrites bytecode across your whole app, which is why it belongs in your app module and why a previously working third-party library is the first thing to suspect if something breaks after this.
+
+:::warning
+The MAM Gradle plugin belongs in **your app module**, never in this library. Applied to the library it rewrites only the library, builds cleanly, and protects nothing.
+:::
+
+
+1. **Apply the MAM Gradle plugin to your app module** — not to this library.
+
+   ```groovy
+   // android/build.gradle
+   buildscript {
+     repositories { mavenCentral() }
+     dependencies {
+       classpath "org.javassist:javassist:3.29.2-GA"
+       classpath files("../node_modules/react-native-intune/vendor/android/GradlePlugin/com.microsoft.intune.mam.build.jar")
+     }
+   }
+   ```
+
+   ```groovy
+   // android/app/build.gradle
+   apply plugin: 'com.microsoft.intune.mam'
+
+   intunemam {
+     report = true       // HTML report → app/build/outputs/intune/<variant>/logs
+     verify = true       // catches plugin-induced runtime failures
+     incremental = true
+   }
+   ```
+
+   > The plugin rewrites bytecode across your whole app and all its dependencies. Applying it inside this library instead would build successfully and protect nothing.
+
+2. **Application class.** If you subclass `android.app.Application`, the plugin transforms it for you. If you don't, set it explicitly:
+
+   ```xml
+   <application android:name="com.microsoft.intune.mam.client.app.MAMApplication" ... >
+   ```
+
+3. **Register the auth callback from your Application class.** This must happen in `onMAMCreate`, before JavaScript exists — so it cannot be done from `configure()`:
+
+   ```kotlin
+   class MainApplication : MAMApplication(), ReactApplication {
+     override fun onMAMCreate() {
+       super.onMAMCreate()
+       RNIntune.registerAuthCallback(this)
+     }
+   }
+   ```
+
+4. **Broker queries and redirect activity.** Without the `<queries>` block, Android 11+ prevents your app from even detecting the broker, and MSAL silently falls back to a browser instead — brokered auth then "just doesn't work" with no error:
+
+   ```xml
+   <queries>
+     <package android:name="com.azure.authenticator" />
+     <package android:name="com.microsoft.windowsintune.companyportal" />
+   </queries>
+
+   <activity android:name="com.microsoft.identity.client.BrowserTabActivity" android:exported="true">
+     <intent-filter>
+       <action android:name="android.intent.action.VIEW" />
+       <category android:name="android.intent.category.DEFAULT" />
+       <category android:name="android.intent.category.BROWSABLE" />
+       <data android:scheme="msauth"
+             android:host="${applicationId}"
+             android:path="/YOUR_URL_ENCODED_SIGNATURE_HASH" />
+     </intent-filter>
+   </activity>
+   ```
+
+---

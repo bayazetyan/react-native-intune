@@ -1,0 +1,139 @@
+---
+id: contributing
+title: Contributing
+sidebar_label: How to contribute
+sidebar_position: 1
+---
+
+Two things about this project are unusual, and both change how you contribute: the
+Microsoft Intune App SDK is not in the repository, and most of what this library does
+cannot be tested without an Intune tenant.
+
+## No CLA
+
+There is no CLA and no DCO. This project is inbound=outbound — your contribution is
+licensed under the same MIT terms as the rest of our code and you keep your copyright.
+Nothing to sign.
+
+That licence covers **our** code only. It does not cover the Intune App SDK, which you
+download from Microsoft under their terms.
+
+## Getting set up
+
+Yarn workspaces monorepo: the library at the root, the example app in `example/`, this
+site in `website/`. Use the Node version in `.nvmrc`.
+
+```bash
+yarn
+node scripts/fetch-sdks.mjs
+```
+
+The second command asks you to accept Microsoft's licence terms, prints where they are,
+and writes into `vendor/`, which is gitignored.
+
+:::danger[Never commit anything under `vendor/`]
+Those are Microsoft's binaries under Microsoft's terms. A published tarball containing them
+is a licensing problem, not a packaging mistake. `vendor/` is gitignored and excluded from
+the package `files` — leave both that way.
+:::
+
+Versions are pinned in `sdk-versions.json` and every downloaded file is checksummed
+against `sdk-lock.json`. Bumping either is a deliberate change: the SDK version decides the
+minimum iOS version and the whole Android toolchain row.
+
+## Running the example
+
+```bash
+yarn example start      # Metro
+yarn example ios
+yarn example android
+```
+
+Point it at your own tenant by copying `example/tenant.example.json` to
+`example/tenant.json` — gitignored — and filling it in. [Test tenant](./tenant-setup.md)
+walks through creating one.
+
+:::warning[On Android, run `:app:assembleDebug`]
+`./gradlew assembleDebug` from the root also builds this library's AAR, which AGP refuses
+to package because of the local `.aar` dependency — and the error names this library, so it
+reads as our bug. Consumers never hit it, because autolinking consumes the library as a
+Gradle project.
+:::
+
+### After changing the Codegen spec
+
+`src/NativeIntune.ts` is the only file Codegen reads. Change it and Codegen must re-run:
+
+```bash
+cd example/ios && bundle exec pod install
+cd example/android && ./gradlew generateCodegenArtifactsFromSchema
+```
+
+If a native build breaks immediately after a spec edit, re-run Codegen before debugging
+anything else.
+
+## Checks
+
+```bash
+yarn typecheck
+yarn lint          # --fix to format
+yarn test
+```
+
+Pre-commit hooks run typecheck and lint on staged files and check the commit message.
+Conventional commits, lowercase subject.
+
+## Verifying native changes
+
+**A pull request touching native code states which platform was actually run, on which
+device or simulator, and against which tenant.** Not "should work" — what you ran.
+
+If you could not run it, say that too. An honest "built on iOS, not run; Android
+untouched" is useful.
+
+:::danger[Never claim an enrollment path was tested when it was not]
+The failures in this area name the wrong cause almost every time — a missing keychain
+entitlement surfaces as an authorization error, a missing URL type as a login loop with an
+empty log, an unregistered auth callback as a licensing-shaped status that retries quietly
+forever. A claimed test that did not happen costs the next person a day of looking in the
+wrong place. [Traps](../notes/traps.mdx) is the accumulated list.
+:::
+
+Before assuming you found a bug here, work through
+[Troubleshooting](../troubleshooting.mdx). Most Intune "bugs" are one of those, and policy
+propagation is on Microsoft's schedule rather than ours.
+
+## House rules
+
+- **English only** — code, comments, identifiers, commit messages, documentation.
+- **Never invent an SDK symbol.** The vendored SDK is the source of truth: read the iOS
+  headers under `vendor/ios/*.xcframework/**/Headers/` and the Android AAR's classes. If
+  you cannot find a selector, say so. A guessed one sometimes compiles, which is worse than
+  failing.
+- **Never log or persist tokens, UPNs or account IDs.** They may appear in in-memory state
+  and in `getDiagnostics()`; they must not reach analytics, crash reports or files.
+- **"Enrollment did not succeed" never means "block the user."** `notLicensed` in
+  particular must not block. Preserve that in every code path and every doc string.
+- Comments explain *why*, especially where a workaround exists for an SDK defect. Link the
+  issue number.
+- TypeScript strict, no `any` in the public API. Unknown native enum values map to
+  `Unknown` and never throw — an SDK update that adds a status must not crash a shipped
+  app.
+- The SDK-facing iOS layer stays Objective-C. Codegen conformance is ObjC++ because it is
+  C++; that boundary is unavoidable. SDK calls stay in `.m` deliberately, so an enrollment
+  failure is debugged across one language boundary rather than two.
+- The MAM Gradle plugin is applied in the consumer's app module, never in this library's
+  `build.gradle`.
+
+## Where the documentation lives
+
+The API reference under [Types and methods](../reference/index.md) is **generated from
+the source** by TypeDoc. Do not edit it — change the TSDoc comment on the type and it
+regenerates.
+
+Everything else is hand-written under `website/docs/`. Adding a public method means
+updating the reference page it belongs to in the same pull request: a method that exists in
+code but not in the documentation does not exist.
+
+Found something the hard way? [Traps](../notes/traps.mdx) is where it goes, with the
+severity that matches what it actually costs — silent, loud, measured, or worth knowing.

@@ -1,0 +1,21 @@
+---
+id: enrollment-outcomes
+title: Enrollment outcomes
+sidebar_position: 2
+---
+
+import { EnrollmentOutcomes } from '@site/src/components/diagrams/EnrollmentOutcomes';
+
+`enroll()` resolves for every outcome — a failure is data, not an exception, and the promise only rejects for programming errors. Eleven outcomes are possible and exactly one resolves. They are grouped below by **what your app should do**, which is not the same as how bad the outcome sounds.
+
+<EnrollmentOutcomes />
+
+:::warning
+**The most common integration bug in libraries like this one** is treating anything that isn't `succeeded` as "block the user". That breaks every customer who has staff without Intune licences, and every pilot where the policy has not been targeted yet. `notLicensed` and `notTargeted` mean the opposite of `failed` — that distinction is prescribed by Microsoft, not invented here.
+:::
+
+:::note
+`enrollment.nativeCode` carries the raw SDK constant name (`LicensedNotTargeted`, `AccountNotLicensed`, `EnrollmentEndPointNetworkFailure`, …). Put it in your support logs: it is the difference between "unlicensed" and "licensed but untargeted", which look identical from the unified status alone.
+:::
+
+---

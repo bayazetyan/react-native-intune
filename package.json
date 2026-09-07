@@ -38,7 +38,8 @@
     "!**/__mocks__",
     "!**/.*",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "!website"
   ],
   "scripts": {
     "fetch-sdks": "node scripts/fetch-sdks.mjs",
@@ -97,12 +98,13 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
+    "@expo/config-plugins": ">=7",
     "react": "*",
-    "react-native": "*",
-    "@expo/config-plugins": ">=7"
+    "react-native": "*"
   },
   "workspaces": [
-    "example"
+    "example",
+    "website"
   ],
   "packageManager": "yarn@4.11.0",
   "react-native-builder-bob": {
@@ -187,9 +189,7 @@
     ],
     "version": "0.63.0"
   },
-  "bin": {
-    "react-native-intune": "scripts/cli.mjs"
-  },
+  "bin": "scripts/cli.mjs",
   "engines": {
     "node": ">=18"
   },

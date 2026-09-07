@@ -1,0 +1,192 @@
+---
+id: traps
+title: Traps
+sidebar_label: Traps and field notes
+sidebar_position: 1
+---
+
+Everything on this page cost somebody a day. None of it is in Microsoft's documentation,
+and most of it was found by running the SDK on a physical device against a real tenant
+rather than by reading anything.
+
+The colour is a risk model, not a tone of voice, and it is the same scale
+`npx react-native-intune doctor` uses:
+
+| | Means |
+|---|---|
+| **Silent** | It builds, it runs, and it protects nothing. Nobody finds out. |
+| **Loud** | The build breaks or the first sign-in fails. Costs an hour, not a breach. |
+| **Measured** | Observed on a device. Safe to rely on. |
+| **Worth knowing** | Not a defect. It will surprise you anyway. |
+
+## Silent — nothing fails, nothing logs
+
+:::danger[The MAM Gradle plugin applied to the wrong module]
+Applied to this library instead of your app module, the plugin rewrites only the library's
+own bytecode. The build is clean, the app runs, and no policy is enforced. Since SDK 8.0
+libraries cannot be processed selectively, so there is no partial success to notice.
+:::
+
+:::danger[An Application class that does not extend MAMApplication]
+No error and no warning. The SDK is linked and simply never gets the chance to enforce
+anything. If you have no `Application` subclass at all, set `android:name` in the manifest
+instead — `doctor` says which case you are in.
+:::
+
+:::danger[An empty UISceneConfigurations in a SwiftUI app]
+Microsoft's own documentation notes that policy applies *successfully* and the app is still
+unprotected. There is no signal of any kind at runtime.
+:::
+
+:::danger[Reading policy from the wrong accessor]
+`IntuneMAMPolicyManager.policy` returns the policy for the **calling thread's** identity.
+On React Native's JavaScript thread that is not your signed-in account: it is a non-nil,
+permissive stub, so every check passes and every restriction reads as "not required".
+
+Use `policyForAccountId:` with the primary account instead. This library does, but anyone
+wrapping the SDK by hand will hit it — the symptom is a policy that never appears to
+change no matter what the administrator does.
+:::
+
+:::danger[Treating anything that is not `succeeded` as "block the user"]
+`notLicensed` and `notTargeted` mean the opposite of `failed`, and that distinction is
+prescribed by Microsoft rather than invented here. Blocking on them locks out every
+employee without an Intune licence, and every pilot where the policy has not been targeted
+yet — while the app reports itself as secure. See
+[Enrollment outcomes](../guides/enrollment-outcomes.mdx).
+:::
+
+## Loud — it breaks, but the error names the wrong cause
+
+:::warning[Broker detection needs `msauthv2://broker`, not `msauthv2://`]
+`canOpenURL:` with the bare scheme returns false even with Authenticator installed, so
+broker detection reports "no broker" on a device that has one. MSAL's own
+`isRequiredBrokerPresent` uses the `//broker` host, which is how this was found.
+:::
+
+:::warning[A missing keychain group surfaces as an authorization error]
+Without `com.microsoft.adalcache` in the entitlements, the broker acquires a token the SDK
+cannot see. Enrollment then fails with "could not access the user's AAD token" even though
+sign-in succeeded — an error that points at identity rather than at entitlements.
+
+Your own bundle ID must be **first** in the list: without an explicit access group, iOS
+writes to the first group in the entitlements, so a Microsoft group in that position would
+receive keychain items your app writes.
+:::
+
+:::warning[No `<queries>` on Android 11+ means MSAL falls back to a browser, silently]
+Package visibility stops your app from even detecting the broker. MSAL then uses a browser
+instead and brokered auth "just doesn't work" with no error anywhere.
+:::
+
+:::warning[A wrong signature hash fails at the first sign-in and names neither key]
+The redirect URI registered in Entra percent-encodes `/` and `=`; the manifest's
+`android:path` uses the decoded form. Same value, two spellings, in two places that must
+agree. An EAS build is signed with a keystore Expo manages, so the hash comes from
+`eas credentials` — it cannot be derived.
+:::
+
+:::warning[`reset()` leaves the module unconfigured]
+By design: it clears the runtime configuration along with the enrollment. The next call
+then rejects with `E_NOT_CONFIGURED`, which reads like a bug in the module. Call
+`configure()` again after a reset.
+:::
+
+:::warning[A repeat `enroll()` for an already-registered account hangs]
+Roughly 90 seconds, on both platforms, and then nothing. The SDK skips accounts it has
+already registered without reporting anything. This library short-circuits it and returns
+immediately; if you call the SDK directly, check `enrolledAccountId` first.
+:::
+
+:::warning[A minified release build fails on classes you never referenced]
+`assembleRelease` succeeds only because the React Native template ships
+`enableProguardInReleaseBuilds = false`, so R8 never runs. Turn it on and the build fails
+outright on missing classes — including `com.microsoft.device.display`, which this library
+excludes deliberately because it is published only to Microsoft's own feed. This library
+ships consumer ProGuard rules for that; a hand integration needs its own `-dontwarn`
+entries.
+:::
+
+:::warning[MSAL rejects the reserved scopes]
+`openid`, `profile` and `offline_access` are added by MSAL itself and passing them
+explicitly is an error. Ask for your own API's scopes only.
+:::
+
+:::warning[On Android, MSAL refuses `signIn` when an account is already present]
+Single-account mode throws "An account is already signed in." rather than returning the
+cached account. Try the cache first and only fall back to interactive sign-in — which is
+why `signIn` behaves slightly differently on the two platforms. See
+[Authentication](../guides/authentication.mdx).
+:::
+
+## Measured on a device
+
+:::tip[The first MAM token request of every launch fails, by design]
+The SDK asks for a token before it has an identity to ask for, so the first request of a
+process is expected to fail and be retried. It is not a misconfiguration and it does not
+need handling.
+:::
+
+:::tip[The iOS SDK resolves the account's OID to a UPN itself]
+It reads the MSAL account cache, so you do not have to supply a UPN alongside the account
+identifier on iOS. Android needs both, in the order the class files dictate.
+:::
+
+:::tip[Runtime configuration works — one tenant, one device, verified]
+All three iOS runtime overrides set through `configure()`, no `ADAL*` keys in the plist:
+enrollment succeeded, policy applied, the app restarted and the PIN was enforced. This was
+the largest risk in the per-tenant model.
+
+Moving an installed app from one tenant to *another* is not verified — it needs a second
+tenant. The runtime overrides do persist across restarts, which is what makes that case
+worth testing rather than assuming.
+:::
+
+## Worth knowing
+
+:::info[A missing PIN prompt is usually the shared global PIN timer]
+The PIN is shared across every managed app on the device and is not requested on every
+launch. A later launch not prompting is that timer, not a regression. Restarting the device
+resets it.
+:::
+
+:::info[Policy propagation is on Microsoft's schedule]
+Creating or changing a policy and then testing immediately proves nothing. Waiting is
+often the fix, and 30 minutes is a reasonable floor before treating anything as a defect.
+:::
+
+:::info[The process terminating after an unregister is expected]
+Not a crash. Anything that has to happen after an unregister cannot be written after the
+call — this library uses a journal that survives the process and resumes on the next
+launch.
+:::
+
+:::info[Other Intune-integrated apps change what you observe]
+Outlook, Teams and OneDrive share policy state and the PIN timer. Microsoft's own test
+guidance is to remove them before drawing conclusions.
+:::
+
+:::info[The Gradle plugin's HTML report is not where the docs say]
+It lands in `android/app/build/outputs/intune/<variant>/logs/IntuneMAMBuildReport.html`,
+with one file per rewritten class beside it. Microsoft's documentation says
+`build/outputs/logs`. Enable it with `report = true` and read it when a third-party library
+starts misbehaving after the plugin is applied.
+:::
+
+:::info[Clipboard policy is not queryable on either platform]
+The SDK enforces copy-and-paste restrictions internally and exposes no flag for them, so
+`getPolicy()` cannot tell you whether copy-out is blocked. Do not build UI that claims to
+know.
+:::
+
+:::info[Two settings exist only in `Info.plist`]
+`ADALCacheKeychainGroupOverride` and `MaxFileProtectionLevel` have no runtime equivalent —
+the SDK reads them at launch. `configure()` therefore rejects the matching options when the
+plist disagrees, rather than accepting a value it cannot apply.
+:::
+
+:::info[One identity at a time, deliberately]
+This library never has two accounts signed in at once. There is no identity tagging, no
+per-identity storage and no multi-identity handling, and adding any of it would change the
+security model rather than extend it.
+:::

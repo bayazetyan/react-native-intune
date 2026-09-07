@@ -1,0 +1,42 @@
+---
+id: reconcile-at-launch
+title: Reconcile at launch
+sidebar_position: 3
+---
+
+Do not drive enrollment from lifecycle hooks. The app process can be killed mid-operation — during a wipe it is *expected* to be — so the only reliable approach is to compare actual state against desired state on every launch.
+
+```ts
+async function reconcile() {
+  const [state, wanted] = await Promise.all([
+    Intune.getState(),
+    fetchTenantConfig(),      // your backend
+  ]);
+
+  if (state.pendingReset) {
+    await Intune.reset({ wipe: true, reason: 'resume' });        // finish an interrupted reset
+    return;
+  }
+  if (!wanted.intuneEnabled && state.enrolledAccountId) {
+    await Intune.reset({ wipe: true, reason: 'intune_disabled' });
+    return;
+  }
+  if (state.configured && wanted.tenantId !== state.configuredTenantId) {
+    await Intune.reset({ wipe: true, reason: 'tenant_changed' });
+    return;
+  }
+  if (wanted.intuneEnabled && !state.enrolledAccountId) {
+    await signInAndEnroll();
+  }
+}
+```
+
+**What is and is not verified here.** Every branch above except one has been run on a
+physical device against a real tenant: the interrupted-reset resume, Intune being switched
+off, and enrolling from cold. The `tenantId` branch has been verified only for the case
+where the reset is followed by reconfiguring **the same** tenant. Moving an installed app
+from one tenant to another has not been tested, because it needs a second tenant we do not
+have — the runtime overrides the SDK keeps do persist across restarts, which is what makes
+the case worth testing rather than assuming. Treat that one path as unproven.
+
+---

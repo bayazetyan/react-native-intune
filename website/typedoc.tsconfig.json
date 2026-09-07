@@ -1,0 +1,13 @@
+{
+  "$comment": [
+    "TypeDoc's own project scope.",
+    "",
+    "The root tsconfig declares no `include`, so it covers every .ts file under the",
+    "repository — including this website's components, which are written against the DOM",
+    "and fail against the library's `lib: [ESNext]`. TypeDoc reported those as errors while",
+    "generating the reference, which is noise about files the reference has nothing to do",
+    "with. Restricting the scope to the library's own source is the fix."
+  ],
+  "extends": "../tsconfig.json",
+  "include": ["../src"]
+}

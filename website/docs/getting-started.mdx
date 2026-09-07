@@ -1,0 +1,72 @@
+---
+id: getting-started
+title: Getting started
+sidebar_label: Installation
+sidebar_position: 2
+---
+
+What you need before you begin, and the two commands that tell you what your project is still missing. Installing the package is the short part: most of this integration is changes to *your* app project, and autolinking does not touch those.
+
+| | |
+|---|---|
+| React Native | 0.74+, **New Architecture required** (TurboModules) |
+| iOS | **17.0+, Xcode 26+.** Not a preference — MAM SDK 21.x is built against them (`minos 17.0`, `sdk 26.2`, read from the binary). An app that must support iOS 16 has to pin MAM SDK 20.x, which Microsoft maintains for high-priority security fixes only |
+| Android | minSdk 24, compileSdk 36, Java 17 — and **Gradle 8.11.1 / AGP 8.9.1 / Kotlin 2.1.21**, the [compatibility matrix](https://learn.microsoft.com/en-us/intune/developer/app-sdk/android-phase-3) row the pinned MAM SDK is tested on. Your app module must land on the same row, because that is where the MAM plugin runs; `doctor` compares yours against it |
+| Auth | **Included.** MSAL with broker support ships with this library. If your app already has its own MSAL, use `authMode: 'external'` — see [Authentication](./guides/authentication.mdx) |
+| Android runtime | The **Intune Company Portal** app must be installed on the device. There is no workaround |
+| Entra | An app registration per tenant, with the Intune MAM API permission granted |
+
+---
+
+## Install
+
+```bash
+npm install react-native-intune
+npx react-native-intune fetch-sdks     # downloads the pinned Microsoft SDKs
+```
+
+Then wire it into your project. Installing the package is not enough: most of this integration is changes to *your* app project — `Info.plist`, entitlements, `AndroidManifest.xml`, your app module's `build.gradle`, your `Application` class — and autolinking does not touch those.
+
+**Expo:** add the config plugin and run `expo prebuild`. Almost everything below is applied for you.
+
+```json
+{ "expo": { "plugins": ["react-native-intune"] } }
+```
+
+**Bare React Native:** two commands, then a short manual remainder — see [doctor and setup](./doctor.mdx).
+
+## Quick start
+
+```ts
+import Intune, { EnrollmentStatus } from 'react-native-intune';
+
+// 1. Configure for this customer's tenant, from your own backend
+await Intune.configure({
+  clientId:    cfg.aadClientId,
+  tenantId:    cfg.aadTenantId,
+  authority:   cfg.aadAuthority,
+  redirectUri: cfg.aadRedirectUri,
+});
+// Rejects with E_PLIST_CONFLICT on iOS if your Info.plist also hardcodes an
+// ADALClientId / ADALAuthority / ADALRedirectUri under IntuneMAMSettings. That
+// combination is a known cause of enrollment failing with AuthRequired, so it is
+// refused up front rather than left to fail in a tenant you cannot reach.
+
+// 2. Let the module clean up your local data during a reset.
+// It runs AFTER the unregister, not before — and on Android the process may not
+// survive that call, in which case this runs on the next launch instead. If it
+// throws, the journal stays open and the reset is retried.
+Intune.setResetHandler(async () => {
+  await storage.clearAll();
+});
+
+// 3. Sign in and enroll
+const { enrollment } = await Intune.signInAndEnroll();
+
+if (enrollment.status === EnrollmentStatus.Failed) {
+  blockCorporateData();          // licensed but not protected — do not proceed
+}
+
+// on logout: removes the MSAL account and unenrolls, in the right order
+await Intune.signOut({ accountId, wipeIntune: true });
+```

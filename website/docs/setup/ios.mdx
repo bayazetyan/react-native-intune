@@ -1,0 +1,62 @@
+---
+id: ios
+title: iOS setup
+sidebar_position: 1
+---
+
+Seven steps, in order. Three of them fail silently when missed — the app builds, runs, and looks correct while protecting nothing — and those three are marked below.
+
+:::warning
+Three of these steps fail **silently** when missed: the app builds, runs, and looks correct while protecting nothing. They are marked below.
+:::
+
+
+1. `cd ios && pod install`
+
+2. **Keychain sharing — this is for the SDK, not for your app's data.** The two Microsoft groups exist because token and policy state is shared between separate processes: the broker (Authenticator / Company Portal) writes a token and the SDK inside your process reads it. iOS isolates the keychain per app, so an access group is the only way that hand-off works.
+
+   You are free to store your own data however you like — MMKV, files, SQLite. This step does not constrain that.
+
+   Enable the Keychain Sharing capability and set the access groups **in this order**:
+
+   ```
+   $(AppIdentifierPrefix)<your.bundle.id>          ← must be first
+   $(AppIdentifierPrefix)com.microsoft.intune.mam
+   $(AppIdentifierPrefix)com.microsoft.adalcache
+   ```
+
+   Your bundle ID must be first: without an explicit access group, iOS writes to the first group in the entitlements, so a Microsoft group in that position would receive any keychain items your app does write. `com.microsoft.adalcache` is MSAL's token cache; `com.microsoft.intune.mam` is where the SDK keeps enrollment state and policy.
+
+   Your provisioning profile's `keychain-access-groups` must contain a wildcard (`YOURBUNDLESEEDID.*`) — the Microsoft groups don't carry your prefix, so without it the entitlements won't sign. If your app already uses a custom MSAL keychain group, use that instead of `com.microsoft.adalcache` and set `ADALCacheKeychainGroupOverride` to match.
+
+   Miss `com.microsoft.adalcache` and the broker acquires a token the SDK cannot see: enrollment fails with "could not access the user's AAD token" even though sign-in succeeded.
+
+3. **Run `IntuneMAMConfigurator` as a build phase.** It writes the required `Info.plist` keys and entitlements, including a long and changing list of `LSApplicationQueriesSchemes` entries:
+
+   ```sh
+   "$SRCROOT/../node_modules/react-native-intune/vendor/ios/IntuneMAMConfigurator" \
+     -i "$SRCROOT/YourApp/Info.plist" \
+     -e "$SRCROOT/YourApp/YourApp.entitlements"
+   ```
+
+   It is idempotent. **Re-run it whenever your plist, entitlements, or the SDK version change** — make it a build phase rather than a one-time manual step.
+
+4. **Build settings:** `STRIP_SWIFT_SYMBOLS = NO`, `ENABLE_BITCODE = NO`. If you use Xcode 26+ "Enhanced Security", disable *Authenticate pointers* and *Enable Read-only Platform Memory*.
+
+5. **Do not add `ADALClientId`, `ADALAuthority` or `ADALRedirectUri` to `Info.plist`.** This library configures identity at runtime. A conflicting plist key alongside a runtime override is a known cause of sign-in timeouts and error 53009.
+
+6. **SwiftUI apps:** ensure `UIApplicationSceneManifest` → `UISceneConfigurations` is present and non-empty. If it is missing, the SDK will not protect your app even when policy applies successfully.
+
+7. **`MaxFileProtectionLevel`, if your app reads its own files while the screen is locked.** The SDK's default is `NSFileProtectionComplete`, which makes protected files unreadable roughly ten seconds after the device locks — enough to break a local database, a background sync, or anything on a timer.
+
+   ```xml
+   <key>IntuneMAMSettings</key>
+   <dict>
+     <key>MaxFileProtectionLevel</key>
+     <string>NSFileProtectionCompleteUntilFirstUserAuthentication</string>
+   </dict>
+   ```
+
+   This key has **no runtime equivalent** — the SDK reads it at launch. Passing `maxFileProtectionLevel` to `configure()` without the matching plist key is therefore rejected with `E_PLIST_CONFLICT` rather than silently ignored, because an option that appears to be set and is not is how an app ships with an unreadable database. The Expo plugin writes the key for you from the `maxFileProtectionLevel` prop.
+
+8. Embed settings: select **Embed & Sign** for the vendored frameworks in your app target, and **Do Not Embed** for any extensions.

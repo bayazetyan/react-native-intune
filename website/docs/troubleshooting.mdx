@@ -1,0 +1,27 @@
+---
+id: troubleshooting
+title: Troubleshooting
+sidebar_position: 5
+---
+
+Most reports against libraries like this are environment problems. Please check, in order:
+
+1. Is the test account **licensed** for Intune, and **targeted** by an App Protection Policy? A licence existing in the tenant is not the same as being assigned to a user.
+2. Was **admin consent** granted for the *Microsoft Mobile Application Management → DeviceManagementManagedApps.ReadWrite* permission? Grant it even though the console says consent isn't required — skipping this is the top cause of `authorizationNeeded`.
+3. **Android:** is Company Portal installed? Are the `<queries>` entries present?
+4. **Android:** does your redirect URI's signature hash match the keystore you actually built with? Debug and release hashes differ.
+5. Has the policy **propagated**? This happens on Microsoft's schedule, not yours. Waiting is often the fix.
+6. Is the missing PIN prompt actually the **shared global PIN timer**? The PIN is shared across all managed apps on the device and won't be requested on every launch. Restarting the device resets the timer.
+7. Did the process terminate after an unregister? **That is expected**, not a crash.
+8. Are other SDK-integrated apps (Outlook, Teams, OneDrive) or the brokers on the device changing what you observe? Microsoft's own test guidance is to remove them.
+9. Did the Gradle plugin's HTML report show the replacements you expected? It lands in `android/app/build/outputs/intune/<variant>/logs/IntuneMAMBuildReport.html`, with one HTML file per rewritten class beside it. Microsoft's docs say `build/outputs/logs`; that is not where it goes.
+
+When none of that explains it, please include: platform and OS version, React Native version, this library's version, the pinned MAM SDK version, whether Company Portal is installed, whether the account is licensed and targeted, and the `nativeCode` / `nativeMessage` from the result.
+
+---
+
+## Testing against your own tenant
+
+The example app enrolls against a real tenant; there is no way to test enrollment without one. [`docs/tenant-setup.md`](https://github.com/bayazetyan/react-native-intune/blob/main/docs/tenant-setup.md) is a step-by-step walkthrough of the Entra and Intune consoles: registering the app, granting the MAM permission, creating the four test users you need to reach every result code, and targeting a policy at a custom app by bundle ID. Each phase ends with a way to check it actually worked.
+
+You do **not** need to publish to a store, add the app to Intune's catalogue, enrol any devices, or register with Microsoft's app partner programme.

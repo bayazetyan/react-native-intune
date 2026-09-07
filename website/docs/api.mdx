@@ -1,0 +1,41 @@
+---
+id: api
+title: API reference
+sidebar_position: 4
+---
+
+import { Architecture } from '@site/src/components/diagrams/Architecture';
+
+Every public method, with the platform differences stated rather than hidden. Anything documented as internal — `PolicySnapshot.raw`, `resolveToken`, `rejectToken` — is outside the semver contract.
+
+| Method | Purpose |
+|---|---|
+| `configure(config)` | Set up the SDK for one tenant. Required first |
+| `signIn(params?)` | Broker-based sign-in. `builtin` mode only |
+| `signInSilent(params)` | Cache-first sign-in; rejects with `E_INTERACTION_REQUIRED` |
+| `signInAndEnroll(params?)` | Sign in and enroll in one call |
+| `acquireToken(params)` | A token for your own API's scopes |
+| `getAccounts()` | Accounts with cached refresh tokens |
+| `signOut({ accountId, wipeIntune })` | Clear the MSAL account and optionally unenroll |
+| `isSupported()` | SDK linked and prerequisites met |
+| `getBrokerStatus()` | Whether Company Portal / Authenticator are present |
+| `openBrokerInstall()` | Send the user to install the broker |
+| `enroll({ accountId })` | Register and enroll an account |
+| `getState()` | Current configuration and enrollment state |
+| `getPolicy()` | Policy snapshot, for adapting your own UI |
+| `reset({ wipe, reason })` | Unenroll, optionally wipe, clear config |
+| `getDiagnostics()` | Opaque key/value for support bundles |
+| `setTokenProvider(fn)` | Supply MAM service tokens. `external` mode only |
+| `setResetHandler(fn)` | Clean up your local data during a reset |
+
+Events: `onEnrollmentResult`, `onPolicyChanged`, `onUnenrollmentResult`, `onWipeRequested`, `onRestartRequired`, `onBrokerStatusChanged`.
+
+Telemetry and the SDK's own PIN/blocking screens are configurable in `configure()` — the Intune SDK sends telemetry to Microsoft by default and renders Microsoft-styled screens unless you set colours and a splash icon.
+
+**What never crosses this API:** PIN prompts, screenshot blocking, encryption and the Company Portal install screen are enforced by the SDK inside your process. `getPolicy()` exists so you can adapt your own UI — hide an export button, disable a share sheet — not so you can implement enforcement yourself.
+
+---
+
+## Where this sits
+
+<Architecture />
