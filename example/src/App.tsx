@@ -42,6 +42,17 @@ const REDIRECT_URI = Platform.select({
   default: 'msauth://intune.example/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D',
 });
 
+/**
+ * Who restarts the app when the SDK says one is needed — which it does when policy
+ * arrives for the first time.
+ *
+ * `false` lets the SDK do it, and that is what a host app usually wants: it is one line
+ * of configuration instead of a restart path to write and get wrong. `true` makes it the
+ * app's job, and the module reports it through `restartRequired` so the app can save work
+ * first. Flip this to exercise the other branch — both are meant to work.
+ */
+const RESTART_HANDLED_BY_APP = false;
+
 export default function App() {
   const [supported, setSupported] = useState('…');
   const [broker, setBroker] = useState<BrokerStatus | null>(null);
@@ -88,6 +99,7 @@ export default function App() {
         authority: `https://login.microsoftonline.com/${TENANT_ID}`,
         redirectUri: REDIRECT_URI,
         verboseLogging: true,
+        restartHandledByApp: RESTART_HANDLED_BY_APP,
       });
       setConfigureResult('resolved');
     } catch (e) {
