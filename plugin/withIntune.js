@@ -77,27 +77,34 @@ const FILE_PROTECTION = {
   none: 'NSFileProtectionNone',
 };
 
-const KEYCHAIN_GROUPS = [
-  // The app's own group first. `$(PRODUCT_BUNDLE_IDENTIFIER)` rather than a literal,
-  // because prebuild is where the bundle id is decided and it can differ per profile.
+const DEFAULT_MSAL_GROUP = 'com.microsoft.adalcache';
+
+/**
+ * In this order, and the order is a requirement rather than a preference: without an
+ * explicit access group iOS writes to the *first* group in the entitlements, so a
+ * Microsoft group in that position would receive keychain items the app writes.
+ *
+ * `$(PRODUCT_BUNDLE_IDENTIFIER)` rather than a literal, because prebuild is where the
+ * bundle id is decided and it can differ per build profile.
+ */
+const keychainGroups = (msalGroup) => [
   '$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)',
   '$(AppIdentifierPrefix)com.microsoft.intune.mam',
-  '$(AppIdentifierPrefix)com.microsoft.adalcache',
+  `$(AppIdentifierPrefix)${msalGroup}`,
 ];
 
 // ---------------------------------------------------------------- ios
 
-const withKeychainGroups = (config) =>
+const withKeychainGroups = (config, { keychainGroup }) =>
   withEntitlementsPlist(config, (c) => {
+    const wanted = keychainGroups(keychainGroup);
     const existing = c.modResults['keychain-access-groups'] ?? [];
-    // Ours first, then anything the app already had that we did not add. Order is part
-    // of the requirement, not a preference: the app's own group must come first.
-    const others = existing.filter((g) => !KEYCHAIN_GROUPS.includes(g));
-    c.modResults['keychain-access-groups'] = [...KEYCHAIN_GROUPS, ...others];
+    const others = existing.filter((g) => !wanted.includes(g));
+    c.modResults['keychain-access-groups'] = [...wanted, ...others];
     return c;
   });
 
-const withMsalUrlScheme = (config, { maxFileProtectionLevel }) =>
+const withMsalUrlScheme = (config, { maxFileProtectionLevel, keychainGroup }) =>
   withInfoPlist(config, (c) => {
     const scheme = 'msauth.$(PRODUCT_BUNDLE_IDENTIFIER)';
     const types = c.modResults.CFBundleURLTypes ?? [];
@@ -129,6 +136,18 @@ const withMsalUrlScheme = (config, { maxFileProtectionLevel }) =>
       for (const key of ['ADALClientId', 'ADALAuthority', 'ADALRedirectUri']) {
         delete settings[key];
       }
+    }
+
+    // `configure({ keychainGroupOverride })` has no runtime equivalent for the SDK's own
+    // side of it: `ADALCacheKeychainGroupOverride` is read from the plist at launch, and
+    // `configure()` refuses the option when the two disagree. Prebuild regenerates the
+    // plist, so without this an Expo app could not use a custom group at all — it would
+    // fail with E_PLIST_CONFLICT and there would be nowhere to fix it.
+    if (keychainGroup !== DEFAULT_MSAL_GROUP) {
+      c.modResults.IntuneMAMSettings = {
+        ...(c.modResults.IntuneMAMSettings ?? {}),
+        ADALCacheKeychainGroupOverride: keychainGroup,
+      };
     }
 
     if (maxFileProtectionLevel) {
@@ -281,10 +300,11 @@ const withMamApplicationClass = (config) =>
 const withIntune = (config, props = {}) => {
   const androidSignatureHash = props.androidSignatureHash ?? null;
   const maxFileProtectionLevel = props.maxFileProtectionLevel ?? null;
+  const keychainGroup = props.keychainGroup ?? DEFAULT_MSAL_GROUP;
 
   let next = config;
-  next = withKeychainGroups(next);
-  next = withMsalUrlScheme(next, { maxFileProtectionLevel });
+  next = withKeychainGroups(next, { keychainGroup });
+  next = withMsalUrlScheme(next, { maxFileProtectionLevel, keychainGroup });
   next = withBrokerQueries(next);
   next = withRedirectActivity(next, { androidSignatureHash });
   next = withGradle(next);
