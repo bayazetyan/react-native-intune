@@ -1,0 +1,49 @@
+# NOTICE
+
+`react-native-intune` is MIT licensed (see LICENSE) and covers **only the code in this
+repository**. It wraps Microsoft software that it neither includes nor relicenses.
+
+## The Microsoft Intune App SDK is not part of this package
+
+The SDK is Microsoft's, distributed under Microsoft's own licence terms, and is **not
+included in this repository or in the published npm tarball**.
+
+`vendor/` is gitignored and excluded from `package.json`'s `files`. `scripts/fetch-sdks.mjs`
+downloads the pinned version at install time, from Microsoft's own releases, verifying a
+recorded sha256 per artifact. Nothing about that arrangement grants anyone rights they did
+not already have from Microsoft.
+
+Using this package therefore means accepting Microsoft's terms for the SDK. They arrive
+alongside the download:
+
+| File | What it covers |
+|---|---|
+| `vendor/ios/Microsoft License Terms Intune App SDK for iOS.pdf` | the iOS SDK |
+| `vendor/android/Microsoft License Terms Intune App SDK for Android.pdf` | the Android SDK |
+| `vendor/ios/REDIST.txt` | which iOS binaries may be redistributed in *your* app |
+| `vendor/ios/ThirdPartyNotices.txt` | the SDK's own third-party attributions |
+
+Read `REDIST.txt` before shipping: it names the frameworks you are permitted to
+redistribute inside an application, which is a narrower permission than redistributing the
+SDK itself. This project relies on that permission and does not extend it.
+
+## Microsoft Authentication Library (MSAL)
+
+MSAL is a declared dependency rather than a vendored one — the pod on iOS, the Gradle
+artifact on Android — and is fetched from public registries in the normal way. It is
+Microsoft's, under the MIT licence, Copyright (c) Microsoft Corporation.
+
+The version is pinned in `sdk-versions.json`. The reason is in SPEC §3.1: the Intune SDK
+does not carry its own MSAL, it drives the application's, so two MSAL versions in one
+binary is a failure nobody debugs quickly.
+
+## Trademarks
+
+Microsoft, Intune, Microsoft Entra, Microsoft 365 and Azure are trademarks of the
+Microsoft group of companies. They appear here only to describe what this package
+integrates with.
+
+**This project is not affiliated with, endorsed by, or supported by Microsoft.** Microsoft
+publishes no React Native support for the Intune App SDK, which is why this package exists
+and why a meaningful part of its behaviour was established by reading the SDK's own headers
+and running it on real devices rather than from documentation.
