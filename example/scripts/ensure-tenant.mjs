@@ -7,8 +7,10 @@
 // exist on a fresh clone. It is created with placeholders rather than real values, so a
 // contributor gets a build that runs and an obvious thing to fill in.
 //
-// Wired into the example's `start`, `ios` and `android` scripts, so there is nothing to
-// remember and no README step to skip.
+// Called explicitly at the front of every script that bundles or type-checks the example.
+// Explicitly, and not through a `prestart`-style hook: Yarn 4 does not run arbitrary pre
+// and post scripts, so those hooks looked like a safeguard and did nothing — a fresh clone
+// failed to bundle, and `yarn typecheck` failed in CI on the missing module.
 
 import { copyFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
