@@ -33,7 +33,9 @@
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
-    "!**/.*"
+    "!**/.*",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "fetch-sdks": "node scripts/fetch-sdks.mjs",
