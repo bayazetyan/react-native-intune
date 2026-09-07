@@ -160,7 +160,7 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
   }
 
   override fun getBrokerStatus(promise: Promise) {
-    val companyPortal = isPackageInstalled(COMPANY_PORTAL_PACKAGE)
+    val companyPortal = isCompanyPortalInstalled()
 
     promise.resolve(
       Arguments.createMap().apply {
@@ -679,6 +679,27 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
    * 11+. Without it this returns false even when Company Portal is installed — the same
    * omission that makes MSAL fall back to a browser and lose the broker (SPEC §6.2).
    */
+  /**
+   * Whether Company Portal is present, preferring the SDK's own answer.
+   *
+   * `MAMComponents.isCompanyPortalInstalled` is first-party and, more importantly, does
+   * not depend on the consumer having declared the broker packages in `<queries>`. Our
+   * own `packageManager` lookup does: on Android 11+ an undeclared package is invisible,
+   * so a consumer who skips that manifest entry gets a confident `false` for a broker
+   * that is installed — and then tells the user to install what they already have.
+   *
+   * That exact failure happened on iOS for a different reason (the wrong URL form), and
+   * it is worth not leaving a second way to reach it.
+   *
+   * The package lookup stays as the fallback: it is the only thing that can answer before
+   * `configure`, and `getBrokerStatus` is deliberately answerable then, because the app
+   * needs it to decide whether to prompt for a broker install at all (SPEC §13.1).
+   */
+  private fun isCompanyPortalInstalled(): Boolean =
+    runCatching { MAMComponents.isCompanyPortalInstalled(reactContext) }
+      .getOrNull()
+      ?: isPackageInstalled(COMPANY_PORTAL_PACKAGE)
+
   private fun isPackageInstalled(packageName: String): Boolean =
     runCatching { reactContext.packageManager.getPackageInfo(packageName, 0) }.isSuccess
 
