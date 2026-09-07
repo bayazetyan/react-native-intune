@@ -303,9 +303,17 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
       canOpen([RNIntuneCompanyPortalScheme stringByAppendingString:@"://broker"]) ||
       canOpen([RNIntuneCompanyPortalScheme stringByAppendingString:@"://"]);
 
+  // Through a BOOL variable, not boxed inline. `a || b` has type `int` in C, so
+  // `@(hasAuthenticator || hasCompanyPortal)` boxes an NSNumber holding the integer 1
+  // rather than a boolean YES — and that crosses the bridge as the JS number `1`, not
+  // `true`. Found on device: `brokerAvailable` read false while `authenticatorInstalled`
+  // read true, which is arithmetically impossible and was the only field in this
+  // dictionary built from an expression instead of a variable.
+  BOOL brokerAvailable = hasAuthenticator || hasCompanyPortal;
+
   return @{
     // Either broker will do on iOS — Authenticator is the common one.
-    @"brokerAvailable" : @(hasAuthenticator || hasCompanyPortal),
+    @"brokerAvailable" : @(brokerAvailable),
     @"companyPortalInstalled" : @(hasCompanyPortal),
     @"authenticatorInstalled" : @(hasAuthenticator),
     // Unlike Android, iOS can enroll without a broker present.
