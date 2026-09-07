@@ -464,6 +464,7 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
         )
         putString("status", status?.let { RNIntuneNotifications.unifiedStatus(it) })
         putString("pendingReset", RNIntuneResetJournal.stage(reactContext))
+        putString("pendingResetReason", RNIntuneResetJournal.read(reactContext)?.reason)
       }
     )
   }

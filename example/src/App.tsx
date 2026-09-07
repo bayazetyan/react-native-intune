@@ -296,10 +296,15 @@ export default function App() {
       const pending = await Intune.getState().catch(() => null);
       if (pending?.pendingReset != null) {
         setEnrollResult(`resuming reset (${pending.pendingReset})`);
-        // Lands back in the same reset() as the original call — the handler runs, then
-        // the journal closes. `reason: 'resume'` is what distinguishes it in the audit
-        // trail from the reset that started it.
-        await Intune.reset({ wipe: true, reason: 'resume' }).catch((e) => {
+        // Passes the *original* reason on, not `'resume'`. The journal knows why the
+        // reset started, and that is what the handler needs: on the path that matters
+        // most — a wipe the administrator started — the process dies before the handler
+        // can run in the original call, so this resume is the only chance to say
+        // "an administrator revoked access" rather than nothing (SPEC §7.4).
+        await Intune.reset({
+          wipe: true,
+          reason: pending.pendingResetReason ?? 'resume',
+        }).catch((e) => {
           setEnrollResult(`resume failed: ${describe(e)}`);
         });
       }

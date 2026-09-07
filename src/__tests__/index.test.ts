@@ -274,6 +274,34 @@ describe('getState', () => {
       enrolledAccountId: null,
       status: null,
       pendingReset: null,
+      pendingResetReason: null,
+    });
+  });
+
+  /**
+   * The reason matters on exactly one path, and it is the important one: a wipe the
+   * administrator started kills the process before the handler can run, so the resume is
+   * the only place the app can tell the user what happened. Flattening it to `'resume'`
+   * loses that.
+   */
+  it('surfaces why an unfinished reset started, so a resume can pass it on', async () => {
+    mockNative.getState.mockResolvedValueOnce({
+      configured: true,
+      pendingReset: 'unregistering',
+      pendingResetReason: 'remote_wipe',
+    });
+    const state = await Intune.getState();
+    expect(state.pendingReset).toBe(ResetStage.Unregistering);
+    expect(state.pendingResetReason).toBe('remote_wipe');
+  });
+
+  it('nulls a reset reason it does not recognise rather than guessing', async () => {
+    mockNative.getState.mockResolvedValueOnce({
+      pendingReset: 'unregistering',
+      pendingResetReason: 'something_new',
+    });
+    await expect(Intune.getState()).resolves.toMatchObject({
+      pendingResetReason: null,
     });
   });
 });

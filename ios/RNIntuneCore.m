@@ -365,6 +365,7 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
       @"enrolledAccountId" : NSNull.null,
       @"status" : NSNull.null,
       @"pendingReset" : NSNull.null,
+      @"pendingResetReason" : NSNull.null,
     };
   }
 
@@ -382,6 +383,7 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
     // (SPEC §4.1).
     @"status" : enrolled != nil ? @"succeeded" : NSNull.null,
     @"pendingReset" : RNIntuneResetJournal.shared.stage ?: NSNull.null,
+    @"pendingResetReason" : RNIntuneResetJournal.shared.reason ?: NSNull.null,
   };
 }
 

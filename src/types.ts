@@ -230,6 +230,16 @@ export type IntuneState = {
   status: EnrollmentStatus | null;
   /** Non-null means a reset is unfinished and must be resumed (SPEC §7). */
   pendingReset: ResetStage | null;
+  /**
+   * Why that unfinished reset started, from the journal.
+   *
+   * Pass it back as `reset({ reason })` when resuming, so the reset handler sees what
+   * actually happened rather than `'resume'`. It is the difference between telling a user
+   * their administrator revoked access and telling them nothing — and on the path that
+   * matters most, a service-initiated wipe, the process dies before the handler ever runs
+   * in the original call, so the resume is the only place it can be said.
+   */
+  pendingResetReason: ResetReason | null;
 };
 
 export type ResetParams = {
