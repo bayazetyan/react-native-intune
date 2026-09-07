@@ -8,7 +8,7 @@ This is the walkthrough. `SPEC.md` §14 is the specification-level summary; wher
 disagree, the spec is the contract and this is the procedure.
 
 For what a **customer** has to do once the module ships — and what is safe to send them —
-see [`customer-onboarding.md`](./customer-onboarding.md).
+the customer-facing walkthrough is not published yet.
 
 | Phase | | Rough time |
 |---|---|---|

@@ -354,7 +354,7 @@ Intune.onWipeRequested(({ accountId }) => { /* … */ });
 
 ## API
 
-Full reference: [`SPEC.md` §13](./SPEC.md#13-react-native-api-reference).
+Full reference: the sections above, until the documentation site lands.
 
 | Method | Purpose |
 |---|---|
