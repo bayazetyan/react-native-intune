@@ -8,6 +8,12 @@ Guidance for Claude Code working in this repository.
 
 `SPEC.md` is the contract. Read it before writing code. If a change contradicts the spec, say so and stop — do not silently diverge.
 
+**`SPEC.md` and `TODO.md` are not in the repository.** They are gitignored and purged from
+history: they record measurements against a real tenant and decisions that are ours, and
+this repository is public. They still exist in the working tree — keep editing them, never
+`git add` them. The `SPEC §...` references in code comments therefore point at a document a
+contributor cannot open; they are being migrated to the documentation site.
+
 There is no official Microsoft support for React Native here. A meaningful share of this work is empirical: read the SDK headers, run it, observe.
 
 ## Non-negotiable rules
@@ -36,14 +42,35 @@ There is no official Microsoft support for React Native here. A meaningful share
 ## Layout
 
 ```
-src/NativeIntune.ts   Codegen spec — the only file Codegen reads
+src/NativeIntune.ts      Codegen spec — the only file Codegen reads
 src/index.ts             public API, typed wrappers, enum narrowing
 src/types.ts             enums and shared types
 ios/                     ObjC / ObjC++ implementation
 android/                 Kotlin implementation
+plugin/                  Expo config plugin; transforms.js is pure and unit-tested
+scripts/                 fetch-sdks, doctor, setup, and the shared lib/ they use
 example/                 example app; the only place we test against a real tenant
-scripts/fetch-sdks       downloads pinned SDKs into vendor/
+website/                 Docusaurus documentation site
 ```
+
+### The documentation site
+
+`website/` is its own workspace with its own toolchain, and the library's eslint ignores it.
+
+- **`website/docs/reference/` is generated** from the TSDoc comments by TypeDoc
+  (`yarn workspace website gen-api`, which `start` and `build` run first). Never edit those
+  files — change the comment on the type.
+- The palette, type scale and diagram geometry come from a design system. The diagram
+  components under `website/src/components/` were **ported from its artboards** and their
+  colours read from `--rni-*` tokens so they follow the theme; do not reintroduce literal
+  hex there.
+- Callout severity is a risk model, the same one `doctor` uses: `danger` for silent
+  failures, `warning` for loud ones, `tip` for something measured on a device, `info` for
+  what will surprise you anyway. Red is reserved for the silent class and for destructive
+  operations.
+- **Anything learned the hard way goes on `website/docs/notes/traps.mdx`** with the
+  severity that matches what it actually costs. That page is the reason the next person
+  does not lose the same day.
 
 ## Scaffolding
 
@@ -64,6 +91,9 @@ yarn typecheck
 yarn lint
 yarn test
 yarn build                      # bob build (library output)
+
+yarn workspace website start    # docs site, regenerates the API reference first
+yarn workspace website build
 
 yarn workspace example ios      # run example on iOS
 yarn workspace example android  # run example on Android
@@ -119,7 +149,11 @@ Check in this order — most Intune "bugs" are one of these:
 - **Never commit or publish the Intune SDK binaries.** They are Microsoft's, under Microsoft's licence terms. `vendor/` is gitignored and must be excluded from `package.json` `files`. A published tarball containing them is a licensing problem, not a packaging bug.
 - `resolveToken` / `rejectToken` are in the Codegen spec but are not public API — `setTokenProvider` wraps them. Do not document them as callable.
 - Unknown native enum values map to `Unknown`, never throw. An SDK update that adds a status must not crash a shipped app.
-- When adding a public method, update `SPEC.md` §13 and the README in the same PR. A method that exists in code but not in the reference does not exist.
+- When adding a public method, update `SPEC.md` §13 and the documentation site in the same
+  PR. A method that exists in code but not in the reference does not exist. The type-level
+  reference regenerates itself; the guide page that explains *when* to call it does not.
+- The README is deliberately short — it is the decision document. Depth belongs on the
+  site, and a change that makes the README longer is usually a page instead.
 
 ## Commits and PRs
 
