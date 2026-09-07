@@ -4,10 +4,14 @@ pre-commit:
 
     lint:
       glob: "*.{js,ts,jsx,tsx}"
-      run: npx eslint {staged_files}
+      # --no-warn-ignored because the staged files are passed explicitly: eslint then
+      # reports every ignored one — the whole documentation site, on any commit that
+      # touches it — as a warning about its own ignore list.
+      run: npx eslint --no-warn-ignored {staged_files}
 
     types:
-      glob: "*.{js,ts, jsx, tsx}"
+      # The typo in the previous glob (`ts, jsx`) meant .jsx and .tsx never triggered it.
+      glob: "*.{js,ts,jsx,tsx}"
       run: npx tsc
 commit-msg:
   parallel: true

@@ -1,0 +1,59 @@
+name: Docs
+
+# Two triggers, two different jobs, on purpose. A pull request only builds — it proves the
+# site still compiles, and with onBrokenLinks: 'throw' that also proves every internal link
+# and anchor still resolves. Only a merge to main publishes.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # So a broken deployment can be re-run without an empty commit.
+  workflow_dispatch:
+
+# Required by actions/deploy-pages. Read-only elsewhere.
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build site
+        run: yarn workspace website build
+
+      - name: Upload artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: website/build
+
+  deploy:
+    # Never from a pull request: a fork's branch must not be able to publish to our Pages
+    # site.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
