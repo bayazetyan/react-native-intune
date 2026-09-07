@@ -1,4 +1,11 @@
 {
+  "$comment": [
+    "`exclude` replaces the base list rather than extending it, so every entry the root",
+    "tsconfig excludes has to be repeated here. Leaving `website` out meant `bob build`",
+    "type-checked the documentation site against the library's `lib: [ESNext]` and failed",
+    "on ResizeObserver and the Docusaurus `@site/*` aliases — during `npm pack`, which is",
+    "the worst place to discover it."
+  ],
   "extends": "./tsconfig",
-  "exclude": ["example", "lib"]
+  "exclude": ["node_modules", "example", "lib", "website"]
 }
