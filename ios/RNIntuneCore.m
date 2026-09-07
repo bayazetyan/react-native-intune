@@ -361,6 +361,26 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
         IntuneMAMPolicyManager.instance.isManagementEnabled ? @"true" : @"false";
     out[@"enrolled"] =
         IntuneMAMEnrollmentManager.instance.enrolledAccountId != nil ? @"true" : @"false";
+
+    // Three counts, because the SDK keeps three separate lists and they disagree.
+    //
+    // Found on device: after a reset that `completeReset` verified as clean, the SDK's
+    // own "Remove Account" sheet still listed the previous account — because that sheet
+    // is driven by `managedAccountIds`, which the reset verification does not look at.
+    // Counts rather than the ids themselves: the question a support ticket asks is
+    // "is anything left", not "which".
+    out[@"registeredAccountCount"] = [NSString
+        stringWithFormat:@"%lu",
+                         (unsigned long)IntuneMAMEnrollmentManager.instance
+                             .registeredAccountIds.count];
+    out[@"enrolledAccountCount"] = [NSString
+        stringWithFormat:@"%lu",
+                         (unsigned long)IntuneMAMEnrollmentManager.instance
+                             .enrolledAccountIds.count];
+    out[@"managedAccountCount"] = [NSString
+        stringWithFormat:@"%lu",
+                         (unsigned long)IntuneMAMPolicyManager.instance.managedAccountIds
+                             .count];
   }
 
   out[@"plistHasIdentityKeys"] = RNIntunePlistGuard.hasIdentityKeys ? @"true" : @"false";
