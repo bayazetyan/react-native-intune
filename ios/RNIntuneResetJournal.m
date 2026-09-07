@@ -65,6 +65,19 @@ static NSString *const RNIntuneJournalKey = @"com.reactnativeintune.resetJournal
   [NSUserDefaults.standardUserDefaults synchronize];
 }
 
+- (BOOL)openForServiceWipeWithAccountId:(NSString *)accountId
+                               tenantId:(NSString *)tenantId
+{
+  if (self.entry != nil) {
+    return NO;
+  }
+  // `wipe: YES` because the SDK is already wiping; the flag records what happened rather
+  // than requesting it. `reason` is what lets the consumer's handler tell an
+  // administrator revoking access from a user logging out (SPEC §7.4).
+  [self openWithAccountId:accountId tenantId:tenantId wipe:YES reason:@"remote_wipe"];
+  return YES;
+}
+
 - (void)advanceToStage:(NSString *)stage
 {
   NSDictionary *current = self.entry;

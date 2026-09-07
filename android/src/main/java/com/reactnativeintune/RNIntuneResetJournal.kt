@@ -97,6 +97,34 @@ internal object RNIntuneResetJournal {
       .commit()
   }
 
+  /**
+   * Opens the journal for a wipe the *service* started, unless one is already open.
+   *
+   * A service-initiated wipe is one of the callers of the reset path (SPEC §7, "one code
+   * path, many callers"), and it needs the journal for the same reason `reset()` does: the
+   * SDK terminates the process, so the consumer's cleanup may not finish and nothing else
+   * will come back for it. With no entry there is no `pendingReset`, so the next launch
+   * has no idea anything happened.
+   *
+   * Returns false when an entry already exists — a reset in flight must not be
+   * overwritten, since its `reason` and `accountId` are what the resumed sequence acts on.
+   */
+  fun openForServiceWipe(context: Context, accountId: String?, tenantId: String?): Boolean {
+    if (read(context) != null) return false
+    // `wipe = true` records what happened rather than requesting it: the SDK is already
+    // wiping. `reason` is what lets the consumer's handler tell an administrator revoking
+    // access from a user logging out (SPEC §7.4).
+    open(
+      context = context,
+      accountId = accountId,
+      upn = null,
+      tenantId = tenantId,
+      wipe = true,
+      reason = "remote_wipe",
+    )
+    return true
+  }
+
   fun advance(context: Context, stage: String) {
     if (prefs(context).getString(KEY_STAGE, null) == null) return
     prefs(context).edit().putString(KEY_STAGE, stage).commit()

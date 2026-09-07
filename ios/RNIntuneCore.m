@@ -203,6 +203,26 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
           if (self == nil) {
             return;
           }
+          // A service-initiated wipe opens the journal before anyone hears about it.
+          //
+          // This is the one place worth intercepting: every delegate event passes through
+          // here, and the SDK reports a wipe from two different callbacks. Doing it here
+          // also means the tenant id is in scope, which the delegates do not have.
+          //
+          // Why it matters: the SDK terminates the process after the wipe, so a
+          // subscriber's cleanup may not finish — and without a journal entry there is no
+          // `pendingReset`, so the next launch has no idea anything happened and the app's
+          // own data and backend session are never dealt with. §7 already lists remote
+          // wipe as one of the callers of the single reset path; this makes that true.
+          if ([event isEqualToString:RNIntuneEventWipeRequested]) {
+            id accountId = body[@"accountId"];
+            [RNIntuneResetJournal.shared
+                openForServiceWipeWithAccountId:[accountId isKindOfClass:NSString.class]
+                                                    ? accountId
+                                                    : nil
+                                       tenantId:self.configuredTenantId];
+          }
+
           // Settle first, publish second. The same delegate callback serves a caller
           // waiting on enroll() and every subscriber — including for the SDK's own
           // background retries, which have no caller at all (SPEC §13.5).
