@@ -90,15 +90,31 @@ jobs:
             console.log(`tarball: ${files.length} files, none forbidden`);
           '
 
+      # A prerelease must not become what `npm install <pkg>` hands people. npm assigns
+      # `latest` by default — including on a package's very first publish, prerelease or
+      # not — so the dist-tag is derived from the version rather than left to the default.
+      - name: Choose the dist-tag
+        id: disttag
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          case "$version" in
+            *-*) tag=next ;;   # 0.1.0-alpha.1, 1.0.0-rc.2 — reachable only on request
+            *)   tag=latest ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publishing $version under dist-tag $tag"
+
       - name: Publish
         # Provenance needs a public repository. While the repository is private the
         # package still publishes, just unsigned, rather than failing the release.
         run: |
+          args="--access public --tag ${{ steps.disttag.outputs.tag }}"
           if [ "${{ github.event.repository.private }}" = "false" ]; then
-            npm publish --provenance --access public
+            args="$args --provenance"
           else
             echo "::warning::repository is private — publishing without provenance"
-            npm publish --access public
           fi
+          echo "npm publish $args"
+          npm publish $args
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
