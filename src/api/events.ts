@@ -11,16 +11,17 @@ import type { EmitterSubscription } from 'react-native';
 import { emitter } from '../internal/emitter';
 import {
   nullableStr,
-  str,
   toBrokerStatus,
   toEnrollmentResult,
   toPolicySnapshot,
+  toRestartReason,
 } from '../internal/decode';
 import type {
   BrokerStatus,
   EnrollmentResult,
   IntuneEvents,
   PolicySnapshot,
+  RestartRequest,
 } from '../types';
 
 function subscribe<K extends keyof IntuneEvents>(
@@ -74,11 +75,13 @@ export function onWipeRequested(
 
 /** iOS, on first policy application. See `configure({ restartHandledByApp })`. */
 export function onRestartRequired(
-  listener: (request: { reason: string }) => void
+  listener: (request: RestartRequest) => void
 ): EmitterSubscription {
   return subscribe(
     'restartRequired',
-    (raw) => ({ reason: str((raw as Record<string, unknown>).reason) }),
+    (raw) => ({
+      reason: toRestartReason((raw as Record<string, unknown>).reason),
+    }),
     listener
   );
 }
