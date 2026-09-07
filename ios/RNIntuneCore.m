@@ -316,8 +316,22 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
     @"brokerAvailable" : @(brokerAvailable),
     @"companyPortalInstalled" : @(hasCompanyPortal),
     @"authenticatorInstalled" : @(hasAuthenticator),
-    // Unlike Android, iOS can enroll without a broker present.
-    @"required" : @NO,
+    // YES, and this used to say NO with the comment "unlike Android, iOS can enroll
+    // without a broker present". That was wrong, and §3.1 was right.
+    //
+    // Verified by removing Authenticator from an iPad and signing in: MSAL fell back to
+    // Safari and the *Entra* sign-in completed, but Microsoft's own page then refused to
+    // go further without the Authenticator app installed. The browser is a middleman for
+    // the sign-in, not a substitute for the broker, and enrollment needs a broker-issued
+    // token.
+    //
+    // Strictly the requirement comes from the tenant's policy and Conditional Access
+    // configuration, so a module cannot know in advance whether a given tenant enforces
+    // it. The costs are not symmetric: prompting for a broker that turns out unnecessary
+    // is harmless, while not prompting for one that is needed leaves the user stuck on a
+    // Microsoft page mid-sign-in with no explanation from the app. So this errs toward
+    // prompting.
+    @"required" : @YES,
   };
 }
 
