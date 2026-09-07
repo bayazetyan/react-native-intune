@@ -132,6 +132,21 @@ It reads the MSAL account cache, so you do not have to supply a UPN alongside th
 identifier on iOS. Android needs both, in the order the class files dictate.
 :::
 
+:::tip[A resumed reset carries the reason it started with]
+When the SDK kills the process mid-reset, the journal picks the reset up on the next launch
+— and it carries the *original* reason, not a generic "resume". Verified on an iPad against
+a real tenant: a reset started as `support_reset` was killed at the `cleaningLocal` stage
+and resumed as `support_reset`.
+
+This matters for exactly one branch. On an administrator-initiated wipe the process dies
+before your handler can run, so the resume is the only chance to tell the user "an
+administrator revoked access" rather than nothing.
+
+Reading it takes some care: the resume finishes before the first render, so by the time
+your UI exists `pendingReset` is already null. Log the reason where the resume happens
+rather than binding it to a screen.
+:::
+
 :::tip[Runtime configuration works — one tenant, one device, verified]
 All three iOS runtime overrides set through `configure()`, no `ADAL*` keys in the plist:
 enrollment succeeded, policy applied, the app restarted and the PIN was enforced. This was

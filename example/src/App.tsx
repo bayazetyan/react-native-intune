@@ -286,7 +286,15 @@ export default function App() {
       // back to clear it.
       const pending = await Intune.getState().catch(() => null);
       if (pending?.pendingReset != null) {
-        setEnrollResult(`resuming reset (${pending.pendingReset})`);
+        // The reason is in the message and not only in a row, because the resume
+        // finishes before the first render — by the time the screen is up,
+        // `pendingReset` is already null and there is nothing left to look at.
+        setEnrollResult(
+          `resuming reset (${pending.pendingReset}, reason: ${
+            pending.pendingResetReason ??
+            'MISSING — the journal did not carry one'
+          })`
+        );
         // Passes the *original* reason on, not `'resume'`. The journal knows why the
         // reset started, and that is what the handler needs: on the path that matters
         // most — a wipe the administrator started — the process dies before the handler
@@ -382,6 +390,10 @@ export default function App() {
           <Row label="enrolled" value={state.enrolledAccountId ?? '—'} />
           <Row label="status" value={state.status ?? '—'} />
           <Row label="pendingReset" value={state.pendingReset ?? '—'} />
+          <Row
+            label="pendingResetReason"
+            value={state.pendingResetReason ?? '—'}
+          />
         </>
       )}
 
