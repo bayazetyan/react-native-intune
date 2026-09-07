@@ -22,6 +22,7 @@ import {
   type EnrollmentResult,
   type IntuneState,
   type PolicySnapshot,
+  type RestartReason,
 } from '../types';
 
 // ---------------------------------------------------------------- primitives
@@ -47,6 +48,15 @@ export function nullableStr(value: unknown): string | null {
  * decoder, and nothing distinguishes "native sent 1" from "native sent true" in a way a
  * consumer should care about. Anything that is neither still takes the fallback.
  */
+/**
+ * Narrows a restart reason, falling back to `unknown` rather than passing a raw string
+ * through. A reason a future SDK adds must not break a shipped app — the app still has a
+ * restart to perform either way.
+ */
+export function toRestartReason(value: unknown): RestartReason {
+  return value === 'policyAppliedFirstTime' ? value : 'unknown';
+}
+
 export function bool(value: unknown, fallback = false): boolean {
   if (typeof value === 'boolean') {
     return value;

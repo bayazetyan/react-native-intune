@@ -306,7 +306,17 @@ export type ResetHandler = (
 
 export type WipeRequest = { accountId: string | null };
 
-export type RestartRequest = { reason: string };
+/**
+ * Why the SDK wants the app restarted.
+ *
+ * One value today, because that is the only case the SDK reports: policy arrived for the
+ * first time. Typed as a union rather than `string` so a consumer can switch on it, with
+ * `unknown` for a value a future SDK adds — an unrecognised reason must not break a
+ * shipped app, and a restart is still a restart.
+ */
+export type RestartReason = 'policyAppliedFirstTime' | 'unknown';
+
+export type RestartRequest = { reason: RestartReason };
 
 /** Event names and their payloads, used to type the emitter in `index.ts`. */
 export type IntuneEvents = {
