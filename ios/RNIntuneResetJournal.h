@@ -39,6 +39,21 @@ extern NSString *const RNIntuneResetStageCleaningLocal;
                      wipe:(BOOL)wipe
                    reason:(NSString *)reason;
 
+/**
+ * Opens the journal for a wipe the *service* started, unless one is already open.
+ *
+ * A service-initiated wipe is one of the callers of the reset path (SPEC §7, "one code
+ * path, many callers"), and it needs the journal for the same reason `reset()` does: the
+ * SDK terminates the process, so the consumer's cleanup may not finish and nothing else
+ * will come back for it. Without an entry there is no `pendingReset`, so the next launch
+ * has no idea anything happened.
+ *
+ * Returns NO when an entry already exists. A reset already in flight must not be
+ * overwritten — its `reason` and `accountId` are what the resumed sequence acts on.
+ */
+- (BOOL)openForServiceWipeWithAccountId:(nullable NSString *)accountId
+                               tenantId:(nullable NSString *)tenantId;
+
 - (void)advanceToStage:(NSString *)stage;
 
 /// Only after the account is verified gone. An unverified reset stays open and is retried

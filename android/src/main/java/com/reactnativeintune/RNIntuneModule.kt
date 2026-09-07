@@ -623,25 +623,28 @@ class RNIntuneModule(private val reactContext: ReactApplicationContext) :
     if (event == "enrollmentResult" || event == "unenrollmentResult") {
       payload.getString("accountId")?.let { settleEnrollment(it, payload.copy()) }
     }
+
+    // A service-initiated wipe opens the journal before anyone hears about it.
+    //
+    // Intercepted here because every notification passes through, and this is where the
+    // tenant id is in scope. The SDK terminates the process after a wipe, so a
+    // subscriber's cleanup may not finish — and with no journal entry there is no
+    // `pendingReset`, so the next launch has no idea anything happened and the app's own
+    // data and backend session are never dealt with. §7 already lists remote wipe as one
+    // of the callers of the single reset path; this makes that true (SPEC §7.4).
+    if (event == "wipeRequested") {
+      RNIntuneResetJournal.openForServiceWipe(
+        context = reactContext,
+        accountId = payload.getString("accountId"),
+        tenantId = config?.tenantId,
+      )
+    }
+
     events.emit(event, payload)
   }
 
   // ------------------------------------------------------------------ helpers
 
-  /**
-   * [verify] The single-argument `getRegisteredAccountStatus` is deprecated in favour of
-   * a two-argument overload, but the AAR's class files carry no parameter *names* — only
-   * `@NonNull` on both — so what the second argument means cannot be established from
-   * the binary. By symmetry with `registerAccountForMAM(upn, aadId, tenantId)` it is
-   * probably `(upn, aadId)`, but both overloads compile identically under either
-   * reading, which is exactly the kind of guess that costs a build cycle and sometimes
-   * passes silently (CLAUDE.md rule 1).
-   *
-   * So the deprecated overload stays until the enrollment slice, where MSAL supplies the
-   * UPN and the object ID together and the right call can be confirmed against a real
-   * tenant. Deprecated here means "superseded", not "removed".
-   */
-  @Suppress("DEPRECATION")
   /**
    * The SDK's view of an account's enrollment.
    *
