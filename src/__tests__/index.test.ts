@@ -18,6 +18,7 @@ const mockNative = {
   completeReset: jest.fn(async () => undefined),
   resolveToken: jest.fn(),
   rejectToken: jest.fn(),
+  getBrokerStatus: jest.fn(async () => ({}) as object),
   addListener: jest.fn(),
   removeListeners: jest.fn(),
 };
@@ -203,6 +204,47 @@ describe('getPolicy', () => {
       screenshotAllowed: true,
       raw: {},
     });
+  });
+});
+
+describe('getBrokerStatus', () => {
+  /**
+   * Regression test for a wrong boolean in a public API field, found on a device.
+   *
+   * `a || b` has type `int` in C, so boxing it natively produced an NSNumber holding an
+   * integer, and it arrived here as the number `1`. A strict `typeof === 'boolean'` check
+   * turned that into the fallback, so `brokerAvailable` read `false` on a device with
+   * Authenticator installed — arithmetically impossible, since the native side computes
+   * it as an OR of the two.
+   */
+  it('accepts 1 and 0 from the bridge, not only real booleans', async () => {
+    mockNative.getBrokerStatus.mockResolvedValueOnce({
+      brokerAvailable: 1,
+      companyPortalInstalled: 0,
+      authenticatorInstalled: true,
+      required: 0,
+    });
+    await expect(Intune.getBrokerStatus()).resolves.toEqual({
+      brokerAvailable: true,
+      companyPortalInstalled: false,
+      authenticatorInstalled: true,
+      required: false,
+    });
+  });
+
+  it('still falls back for values that are neither', async () => {
+    mockNative.getBrokerStatus.mockResolvedValueOnce({
+      brokerAvailable: 'yes',
+      companyPortalInstalled: null,
+      authenticatorInstalled: undefined,
+      required: 2,
+    });
+    const status = await Intune.getBrokerStatus();
+    expect(status.brokerAvailable).toBe(false);
+    expect(status.companyPortalInstalled).toBe(false);
+    expect(status.authenticatorInstalled).toBe(false);
+    // `required` defaults by platform, and the test environment reports ios.
+    expect(status.required).toBe(false);
   });
 });
 

@@ -34,8 +34,27 @@ export function nullableStr(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+/**
+ * Accepts `0` and `1` as well as real booleans.
+ *
+ * Not laziness — defence against a genuine bridge nuance. In C, `a || b` has type `int`,
+ * so `@(someBool || otherBool)` on the native side boxes an NSNumber holding an integer
+ * and arrives here as the number `1`, not `true`. A strict check turns that into the
+ * `fallback`, which is how `brokerAvailable` came back `false` on a device that had a
+ * broker installed — a wrong answer, silently, in a public API field.
+ *
+ * The native side was fixed, but this stays: a wrong boolean is worse than a tolerant
+ * decoder, and nothing distinguishes "native sent 1" from "native sent true" in a way a
+ * consumer should care about. Anything that is neither still takes the fallback.
+ */
 export function bool(value: unknown, fallback = false): boolean {
-  return typeof value === 'boolean' ? value : fallback;
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (value === 1 || value === 0) {
+    return value === 1;
+  }
+  return fallback;
 }
 
 export function strArray(value: unknown): string[] {
