@@ -34,6 +34,11 @@ export default defineConfig([
       '**/android/app/build/',
       '**/ios/Pods/',
       'example/ios/build/',
+      // The documentation site has its own toolchain, its own tsconfig and a DOM
+      // environment this config does not describe. It also contains a generated API
+      // reference and a Docusaurus build directory, which together took the lint from
+      // seconds to minutes.
+      'website/',
     ],
   },
 ]);

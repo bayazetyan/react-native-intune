@@ -1,8 +1,16 @@
 {
+  "$comment": [
+    "`exclude` matters because there is no `include`: without it this project covers every",
+    ".ts file in the repository, including the documentation site — which is written",
+    "against the DOM and uses Docusaurus `@site/*` aliases, and failed against this",
+    "project's `lib: [ESNext]`. The site has its own tsconfig and its own typecheck script."
+  ],
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "react-native-intune": ["./src/index"]
+      "react-native-intune": [
+        "./src/index"
+      ]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
@@ -13,7 +21,9 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
-    "lib": ["ESNext"],
+    "lib": [
+      "ESNext"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
@@ -27,5 +37,10 @@
     "strict": true,
     "target": "ESNext",
     "verbatimModuleSyntax": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "lib",
+    "website"
+  ]
 }
