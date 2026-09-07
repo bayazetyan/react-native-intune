@@ -1,0 +1,61 @@
+---
+id: doctor
+title: doctor and setup
+sidebar_position: 3
+---
+
+`doctor` reports what your project still needs and changes nothing. `setup` applies the parts that are identical in every project. Neither runs on install, and the reason is worth reading before you wonder why.
+
+**Bare React Native:** two commands, then a short manual remainder.
+
+```bash
+npx react-native-intune doctor   # reports what is missing, changes nothing
+npx react-native-intune setup    # applies what can be applied, shows a diff first
+```
+
+`setup` handles the parts that are identical in every project: the Gradle plugin, broker `<queries>`, keychain groups, Xcode build settings, the configurator build phase. It **cannot** do three things, because they depend on your project or your signing key, and it will tell you so and exit non-zero:
+
+- changing your `Application` class's superclass to `MAMApplication`
+- the `BrowserTabActivity` redirect, which needs your keystore's signature hash
+- registering the auth callback inside your `onMAMCreate`
+
+`setup` never runs on install, is idempotent, and refuses to touch a dirty git tree without `--force`. The full manual reference is below — read it even if you use `setup`, because three of these steps fail *silently* when missed.
+
+## Why `setup` never runs on install
+
+These files live in your git repository. A script that edits them on install fights your
+own changes, re-applies itself on every version bump, and produces "why did my project
+change" reports — which is why mature libraries abandoned install-time patching. `setup`
+is an explicit command, it prints a diff and asks, and it refuses to touch a dirty git
+tree without `--force` so you always have a clean revert.
+
+Expo is the exception, and for a specific reason: a config plugin runs during
+`expo prebuild`, against files prebuild has just generated. There is nothing of yours to
+overwrite and nothing to re-apply later. See [Expo](./setup/expo.mdx).
+
+## What doctor checks
+
+Fourteen checks across both platforms, each carrying a severity that is a risk model
+rather than a politeness scale:
+
+- **silent** — omitting it builds, runs, and looks correct while leaving the app
+  unprotected. For software bought for security reasons this is the worst available
+  outcome, because everyone involved believes protection is in place.
+- **loud** — the build breaks, or the first sign-in fails. Costs an hour, not a breach.
+- **advisory** — worth knowing, not blocking. Advisories never affect the exit code: a
+  tool whose non-zero exit can mean "nothing important" teaches people to ignore it.
+
+A check that cannot see what it needs reports `unknown` rather than guessing. A green
+result it did not earn is the one outcome the tool must never produce.
+
+```bash
+npx react-native-intune doctor --json     # machine-readable, for CI
+```
+
+Exit code is 1 when anything blocking is missing or wrong, 0 otherwise.
+
+:::warning
+`doctor` cannot check the parts that live outside your project: that the account is
+licensed for Intune, that an App Protection Policy targets this app, and that a broker is
+installed on the device. Enrollment needs all three.
+:::

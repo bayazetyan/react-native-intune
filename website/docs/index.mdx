@@ -1,0 +1,65 @@
+---
+id: index
+slug: /
+title: Introduction
+sidebar_label: Overview
+sidebar_position: 1
+hide_table_of_contents: true
+---
+
+import { HowMamWorks } from '@site/src/components/diagrams/HowMamWorks';
+
+A React Native module wrapping the **Microsoft Intune App SDK**, so an IT administrator in any customer tenant can enforce App Protection Policies on your app — without managing the employee’s phone.
+
+import { PolicyControls } from '@site/src/components/diagrams/PolicyControls';
+
+## How it works
+
+<HowMamWorks />
+
+## What a policy controls
+
+<PolicyControls />
+
+A native module wrapping the [Microsoft Intune App SDK](https://learn.microsoft.com/en-us/intune/developer/app-sdk/) for iOS and Android, so a React Native app can be managed by Intune **App Protection Policies** (also called MAM policies).
+
+Once integrated, an IT administrator in any customer tenant can target your app from their Intune console and enforce:
+
+- App-level PIN or biometric unlock
+- Copy/paste restrictions between managed and unmanaged apps
+- Screenshot blocking
+- Save-as and open-from restrictions
+- Encryption of app data at rest
+- Selective wipe — corporate data removed, personal data untouched
+- Conditional launch rules — minimum OS, jailbreak/root detection, offline grace period
+
+The device does **not** need to be enrolled in Intune for any of this. That is the point of MAM.
+
+## What this is not
+
+This library **cannot** do device management (MDM), and no amount of configuration will change that — the SDK runs inside your app's sandbox:
+
+| | |
+|---|---|
+| Inspect or route device network traffic | ❌ Customer's MDM + VPN profile |
+| Per-app VPN | ❌ Customer pushes the profile; your app only needs to be targetable |
+| Full device wipe, device passcode, disk encryption | ❌ Customer's MDM |
+| Manage other apps, kiosk mode, device inventory | ❌ Customer's MDM |
+| App-level PIN, copy/paste, screenshots, selective wipe | ✅ This library |
+
+If someone asks whether this gives them "Intune device control", the answer is no. It makes your app a first-class Intune-managed app; their MDM handles the device.
+
+---
+
+## Licensing — read before installing
+
+**This library is MIT licensed. The Microsoft Intune App SDK is not, and is not included here.**
+
+The SDK binaries are downloaded at install time from Microsoft's own repositories by `scripts/fetch-sdks`. They are never committed to this repository and never published in the npm package. Microsoft's licence terms apply to them, they are separate from this library's licence, and **you are responsible for reviewing and accepting them**:
+
+- [Intune App SDK for iOS — licence terms](https://github.com/msintuneappsdk/ms-intune-app-sdk-ios)
+- [Intune App SDK for Android](https://github.com/microsoftconnect/ms-intune-app-sdk-android)
+
+See [`NOTICE`](https://github.com/bayazetyan/react-native-intune/blob/main/NOTICE) for the full statement.
+
+---

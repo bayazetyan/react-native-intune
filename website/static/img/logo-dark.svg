@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-label="react-native-intune">
+  <!-- The shield and the orbit are the same ellipse: the enclosure is the orbital path. -->
+  <path d="M32 4 L57 13 V33 C57 47 46 56 32 60 C18 56 7 47 7 33 V13 Z" stroke="#8E99F2" stroke-width="2.5"/>
+  <ellipse cx="32" cy="32" rx="24" ry="10" transform="rotate(-30 32 32)" stroke="#8B94A6" stroke-width="1.8"/>
+  <ellipse cx="32" cy="32" rx="24" ry="10" transform="rotate(30 32 32)" stroke="#8B94A6" stroke-width="1.8"/>
+  <ellipse cx="32" cy="32" rx="24" ry="10" transform="rotate(90 32 32)" stroke="#8B94A6" stroke-width="1.8"/>
+  <circle cx="32" cy="32" r="5" fill="#8E99F2"/>
+</svg>

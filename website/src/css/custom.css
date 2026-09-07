@@ -1,0 +1,1121 @@
+/**
+ * Global stylesheet.
+ *
+ * The palette and the fonts are the design system's, verbatim, including its usage rules
+ * — those rules are why the diagrams survive being printed in one colour, so they are
+ * written down rather than left as a convention someone has to infer.
+ *
+ * The landing page and the diagrams are ported markup carrying their own inline styles.
+ * This file therefore does very little to them on purpose: it supplies the page frame,
+ * the fonts, the Infima variables, and the reflow rules that a fixed-width mock cannot
+ * contain. Restyling those blocks means editing the design, not overriding it here.
+ */
+
+:root {
+  /* Neutral ramp — structure only. Never carries meaning. */
+  --rni-n-50: #f7f8fa;   /* page background, table zebra */
+  --rni-n-100: #eceff4;  /* fills for unmanaged / inert objects */
+  --rni-n-200: #dbe0e9;  /* hairlines, dividers, card borders */
+  --rni-n-400: #98a1b3;  /* device outlines, diagram strokes */
+  --rni-n-600: #5a6478;  /* secondary text, diagram labels */
+  --rni-n-900: #1b2027;  /* body text */
+
+  /* Accent — one, and it means exactly one thing: this part is under policy. Never
+   * decoration, never a second concept. */
+  --rni-accent: #4b5ae4;
+  --rni-accent-tint: #e9ebfd;
+  --rni-accent-dark: #8e99f2;
+
+  /* State — muted, never alarm-bright. Each is allowed one meaning. */
+  --rni-green: #33734f;        /* succeeded, and nothing else */
+  --rni-green-tint: #e6f1ea;
+  --rni-green-line: #9ccfae;
+  --rni-amber: #a8721a;        /* retryable states, skim-proof warnings */
+  --rni-amber-tint: #faf1de;
+  --rni-amber-line: #e6d3a9;
+  --rni-red: #af443b;          /* destructive only: remote wipe */
+  --rni-red-tint: #f9e9e7;
+  --rni-red-line: #ebc4bf;
+
+  --rni-accent-strong: #3745c6;
+
+  /* The ground the artboards are drawn on, and the ink on it. Named rather than literal
+   * so the diagrams can follow the theme instead of staying a white sheet on a dark page. */
+  --rni-paper: #ffffff;
+  --rni-ink: #1b2027;
+
+  --ifm-font-family-base: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Helvetica, Arial, sans-serif;
+  --ifm-font-family-monospace: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  --ifm-heading-font-weight: 600;
+  --ifm-heading-letter-spacing: -0.02em;
+  --ifm-code-font-size: 90%;
+
+  --ifm-color-primary: #4b5ae4;
+  --ifm-color-primary-dark: #3745c6;
+  --ifm-color-primary-darker: #3340b9;
+  --ifm-color-primary-darkest: #2a3598;
+  --ifm-color-primary-light: #6472e8;
+  --ifm-color-primary-lighter: #717eea;
+  --ifm-color-primary-lightest: #98a2f0;
+
+  --ifm-font-color-base: #1b2027;
+  --ifm-toc-border-color: #eceff4;
+  --docusaurus-highlighted-code-line-bg: rgba(75, 90, 228, 0.1);
+}
+
+/**
+ * Dark mode.
+ *
+ * `accent-dark` for strokes and text, plain `accent` only for filled buttons — the
+ * design's own rule. The reason is contrast: the accent at full strength is unreadable as
+ * 1.5px of line work on a dark ground, but it is the correct fill behind white text.
+ */
+[data-theme='dark'] {
+  --rni-n-50: #14181f;
+  --rni-n-100: #262d38;
+  --rni-n-200: #333b49;
+  --rni-n-400: #8b94a6;
+  --rni-n-600: #b9c0cc;
+  --rni-n-900: #eceff4;
+
+  --rni-accent: #8e99f2;
+  --rni-accent-tint: #262d38;
+  --rni-accent-strong: #c9cff8;
+
+  --rni-green: #9ccfae;
+  --rni-green-tint: #1f2a24;
+  --rni-green-line: #33734f;
+  --rni-amber: #e6d3a9;
+  --rni-amber-tint: #2a2620;
+  --rni-amber-line: #a8721a;
+  --rni-red: #ebc4bf;
+  --rni-red-tint: #2b2120;
+  --rni-red-line: #af443b;
+
+  --rni-paper: #1b2027;
+  --rni-ink: #eceff4;
+
+  --ifm-color-primary: #8e99f2;
+  --ifm-color-primary-dark: #7583ee;
+  --ifm-color-primary-darker: #6879ed;
+  --ifm-color-primary-darkest: #4354e6;
+  --ifm-color-primary-light: #a7aff6;
+  --ifm-color-primary-lighter: #b4bbf7;
+  --ifm-color-primary-lightest: #dbdefb;
+
+  --ifm-background-color: #14181f;
+  --ifm-background-surface-color: #1b2027;
+  --ifm-font-color-base: #eceff4;
+  --ifm-toc-border-color: #333b49;
+  --docusaurus-highlighted-code-line-bg: rgba(142, 153, 242, 0.16);
+}
+
+/* ================================================================ landing
+ *
+ * The artboards are 1440px mocks with their own padding. Here they get a max width and
+ * are centred; the inner markup is untouched.
+ */
+
+.landing-hero > div,
+.landing-features > div {
+  margin: 0 auto;
+  max-width: 1440px;
+}
+
+/* The features heading sits on the artboard's own horizontal rhythm: the same 40px
+ * gutter as the grid below it, with the frame's 72px top padding absorbed into it. */
+.landing-features__head {
+  margin: 0 auto;
+  max-width: 1440px;
+  padding: 72px 40px 32px;
+}
+
+.landing-features > div:not(.landing-features__head) {
+  padding: 0 40px 72px;
+}
+
+@media (max-width: 996px) {
+  .landing-features > div:not(.landing-features__head) {
+    padding: 0 24px 48px;
+  }
+}
+
+.landing-features {
+  border-top: 1px solid var(--rni-n-100);
+}
+
+/* The ported markup now reads its colours from the tokens, so the landing follows the
+ * theme like everything else. It used to be pinned to a light ground here, which was the
+ * right call while the artboards carried literal hex and the wrong one afterwards. */
+
+/* The hero's two columns stack before the text has to hyphenate. */
+@media (max-width: 996px) {
+  .landing-hero > div {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 40px !important;
+    padding: 48px 24px 56px !important;
+  }
+
+  .landing-features > div {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 1280px) {
+  .landing-features > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ================================================================ diagrams */
+
+.rni-diagram {
+  margin: 2rem 0;
+}
+
+/**
+ * The artboards are scaled to fit rather than scrolled. `DiagramFrame` measures the
+ * available width and sets the transform; these rules only provide the box it works in.
+ */
+.rni-diagram__fit {
+  overflow: hidden;
+}
+
+.rni-diagram__scaled {
+  transform-origin: top left;
+  width: max-content;
+}
+
+.rni-diagram figcaption {
+  color: var(--rni-n-600);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin-top: 0.7rem;
+  max-width: 46rem;
+}
+
+/* The diagrams follow the theme through the tokens. Nothing is inverted: each colour maps
+ * to its own dark-mode value, so the accent still means "under policy" and grey still
+ * means inert. */
+
+/* ================================================================ the shell
+ *
+ * Navbar, search and sidebar, matched to artboard "11 · Sidebar and navigation". These
+ * are Infima's own elements rather than ported markup, so the artboard's values are
+ * applied to them here: 56px bar, mono wordmark, the bordered version badge, the 230px
+ * search box with its ⌘K hint, and a 280px sidebar whose current item carries a 2px
+ * accent rule.
+ */
+
+.navbar {
+  border-bottom: 1px solid var(--rni-n-100);
+  box-shadow: none;
+  height: 56px;
+  padding: 0 20px;
+}
+
+.navbar__inner {
+  height: 56px;
+}
+
+.navbar__brand {
+  margin-right: 0.75rem;
+}
+
+.navbar__title {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.navbar__logo {
+  height: 22px;
+  margin-right: 10px;
+  width: 22px;
+}
+
+.navbar__version {
+  border: 1px solid var(--rni-n-200);
+  border-radius: 3px;
+  color: var(--rni-n-600);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 11px;
+  padding: 2px 7px;
+}
+
+.navbar__link {
+  font-size: 13.5px;
+  font-weight: 400;
+}
+
+.navbar__items--right > .navbar__link {
+  color: var(--rni-n-600);
+}
+
+/* Search: the artboard's bordered box, not Infima's pill. The ⌘K hint is part of it —
+ * a search field nobody knows the shortcut for is a field people reach for with a mouse. */
+.navbar__search-input {
+  background: transparent;
+  border: 1px solid var(--rni-n-200);
+  border-radius: 4px;
+  color: var(--ifm-font-color-base);
+  font-family: var(--ifm-font-family-base);
+  font-size: 13px;
+  height: auto;
+  padding: 7px 12px 7px 34px;
+  width: 230px;
+}
+
+.navbar__search-input::placeholder {
+  color: var(--rni-n-400);
+}
+
+.navbar__search-input:focus {
+  border-color: var(--rni-accent);
+  outline: none;
+}
+
+/* ---------------------------------------------------------------- sidebar
+ *
+ * Artboard 11, measured: 280px column, 22px/20px padding, 20px between groups. Group
+ * labels 13.5px/600 with a mono caret in the n-400 grey; items 13.5px in n-600 with a 9px
+ * rhythm, nested behind a 1px hairline 16px in. The current item is n-accent at 500 with a
+ * 2px accent rule pulled out over that hairline.
+ */
+
+.theme-doc-sidebar-container {
+  border-right: 1px solid var(--rni-n-100) !important;
+  width: 280px !important;
+}
+
+.theme-doc-sidebar-menu {
+  padding: 22px 20px;
+}
+
+/* 20px between groups, which Infima does not give by default. */
+.theme-doc-sidebar-menu > .menu__list-item + .menu__list-item {
+  margin-top: 20px;
+}
+
+.menu__list {
+  margin: 0;
+}
+
+/* The nested hairline, 16px in. */
+.menu__list .menu__list {
+  border-left: 1px solid var(--rni-n-100);
+  margin-left: 0;
+  margin-top: 10px;
+  padding-left: 16px;
+}
+
+.menu__list-item:not(:first-child) {
+  margin-top: 0;
+}
+
+.menu__list .menu__list .menu__list-item + .menu__list-item {
+  margin-top: 9px;
+}
+
+.menu__link {
+  border-radius: 0;
+  color: var(--rni-n-600);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.4;
+  padding: 0 0 0 8px;
+}
+
+.menu__link:hover {
+  background: transparent;
+  color: var(--ifm-font-color-base);
+}
+
+/* Group labels are headings that happen to toggle, not links to a page. */
+.menu__list-item-collapsible {
+  background: transparent !important;
+}
+
+.menu__list-item-collapsible > .menu__link {
+  color: var(--ifm-font-color-base);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding-left: 0;
+}
+
+/**
+ * The caret is the artboard's own glyph — a mono ▾ when expanded, ▸ when collapsed, in
+ * n-400 — replacing Infima's chevron image. Drawn as text because the artboard draws it
+ * as text: at 13.5px a vector chevron and a mono triangle do not sit on the same baseline,
+ * and the triangle is what the design uses everywhere else it needs one.
+ */
+.menu__link--sublist-caret::after,
+.menu__caret::before {
+  background: none !important;
+  color: var(--rni-n-400);
+  content: '▾';
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 11px;
+  height: auto;
+  line-height: 1;
+  transform: none !important;
+  width: auto;
+}
+
+/* Collapsed groups get the sideways glyph rather than a rotated one. */
+.menu__list-item--collapsed .menu__link--sublist-caret::after,
+.menu__list-item--collapsed .menu__caret::before {
+  content: '▸';
+}
+
+/* The caret leads the label, as the artboard places it. */
+.menu__list-item-collapsible > .menu__link--sublist-caret {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.menu__link--sublist-caret::after {
+  margin-left: 0;
+}
+
+/**
+ * The current page carries a 2px accent rule pulled out over the nested list's own
+ * hairline, exactly as the artboard draws it. Background stays transparent: the design
+ * marks position with a rule, and a filled pill plus a rule reads as two indicators for
+ * one thing.
+ */
+.menu__link--active:not(.menu__link--sublist) {
+  background: transparent;
+  border-left: 2px solid var(--rni-accent);
+  color: var(--rni-accent);
+  font-weight: 500;
+  margin-left: -17px;
+  padding-left: 23px;
+}
+
+/* ---------------------------------------------------------------- doc page
+ *
+ * Artboard 10, measured. The column widths are 264 / 1fr / 200 with the content capped at
+ * 760px — the cap is the part that matters most: a documentation line running the full
+ * width of a wide monitor is the reason long setup pages get skimmed.
+ */
+
+.theme-doc-markdown,
+article {
+  max-width: 760px;
+}
+
+.theme-doc-markdown {
+  padding-bottom: 24px;
+}
+
+/* Breadcrumb: mono, small, muted — a location, not a heading. */
+.theme-doc-breadcrumbs {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 12.5px;
+  margin-bottom: 14px !important;
+}
+
+.breadcrumbs__item .breadcrumbs__link {
+  background: none;
+  color: var(--rni-n-600);
+  font-size: 12.5px;
+  padding: 2px 4px;
+}
+
+.breadcrumbs__item--active .breadcrumbs__link {
+  background: none;
+  color: var(--rni-accent);
+}
+
+.markdown h1:first-child {
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 14px 0 0;
+}
+
+/* The paragraph straight after the title is the page's lead, and it is a size up.
+ * Docusaurus wraps the title in a <header>, so the lead is a sibling of that, not of the
+ * h1 — targeting `h1 + p` silently matched nothing. */
+.markdown > header + p {
+  color: var(--rni-n-600);
+  font-size: 17px;
+  line-height: 1.65;
+  margin: 14px 0 0;
+}
+
+.markdown > h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 40px 0 0;
+}
+
+.markdown > h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 28px 0 0;
+}
+
+.markdown p,
+.markdown li {
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+.markdown p {
+  margin: 12px 0 0;
+}
+
+.markdown ul,
+.markdown ol {
+  margin-top: 12px;
+}
+
+/* Inline code: bordered and tinted, so a symbol inside a sentence is unmistakable. */
+.markdown code:not(pre code) {
+  background: var(--rni-n-50);
+  border: 1px solid var(--rni-n-100);
+  border-radius: 3px;
+  font-size: 14px;
+  padding: 1px 5px;
+}
+
+/* ---------------------------------------------------------------- code blocks
+ *
+ * The artboard's block is 20px/22px inside a 6px radius on #14181F.
+ *
+ * The padding goes on `code.codeBlockLines`, not on `pre`. Docusaurus already pads that
+ * element with `--ifm-pre-padding`, so setting it on the `pre` as well produced 36px of
+ * top padding — which is what "huge padding" looked like. The `pre` is the scroll
+ * container; padding it also means the inset scrolls away with the content.
+ */
+
+.theme-code-block {
+  border: none;
+  border-radius: 6px;
+  box-shadow: none !important;
+  margin: 20px 0 0;
+}
+
+/* The artboard's exact ground and text colour, which no shipped Prism theme matches. */
+.theme-code-block,
+.theme-code-block pre {
+  --prism-background-color: #14181f;
+  --prism-color: #e7eaf0;
+  background-color: #14181f;
+  color: #e7eaf0;
+}
+
+.theme-code-block pre {
+  border-radius: 6px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  padding: 0;
+}
+
+.theme-code-block code[class*='codeBlockLines'] {
+  padding: 20px 22px;
+}
+
+/* The filename header, in the artboard's mono grey. */
+div[class*='codeBlockTitle'] {
+  border-bottom: none;
+  color: #8b94a6;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 11.5px;
+  padding: 16px 22px 0;
+}
+
+/* With a header above it, the block's own top inset is halved rather than repeated. */
+div[class*='codeBlockTitle'] + div code[class*='codeBlockLines'] {
+  padding-top: 12px;
+}
+
+button[class*='copyButton'],
+button[class*='wordWrapButton'] {
+  background: transparent;
+  color: #8b94a6;
+}
+
+/* ---------------------------------------------------------------- callouts
+ *
+ * Two variants, and the second is load-bearing. The note is quiet — a bordered grey
+ * panel. The warning is the "builds successfully and protects nothing" class, so it gets
+ * amber, a 4px left rule and body text at 500: the failure it describes is silent, and a
+ * reader who skims past it has no second chance to notice.
+ */
+
+.theme-admonition {
+  border-radius: 0;
+  box-shadow: none;
+  margin: 24px 0 0;
+  padding: 16px 18px;
+}
+
+.theme-admonition .admonitionHeading_node_modules-\@docusaurus-theme-classic-lib-theme-Admonition-Layout-styles-module,
+.theme-admonition [class*='admonitionHeading'] {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.theme-admonition [class*='admonitionIcon'] {
+  display: none;
+}
+
+.theme-admonition p {
+  font-size: 14.5px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.theme-admonition-note,
+.theme-admonition-info {
+  background: var(--rni-n-50);
+  border: 1px solid var(--rni-n-200);
+}
+
+.theme-admonition-warning {
+  background: var(--rni-amber-tint);
+  border: 1.5px solid var(--rni-amber);
+  border-left-width: 4px;
+  padding: 18px 20px;
+}
+
+.theme-admonition-warning p {
+  color: var(--rni-ink);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.theme-admonition-danger {
+  background: var(--rni-red-tint);
+  border: 1.5px solid var(--rni-red);
+  border-left-width: 4px;
+  padding: 18px 20px;
+}
+
+/* ---------------------------------------------------------------- tables */
+
+.markdown table {
+  border: 1px solid var(--rni-n-200);
+  border-collapse: collapse;
+  display: table;
+  font-size: 13.5px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.markdown table thead {
+  background: var(--rni-n-50);
+}
+
+.markdown table thead tr {
+  border-bottom: 1px solid var(--rni-n-200);
+}
+
+.markdown table th {
+  border: none;
+  color: var(--rni-n-600);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 12.5px;
+  font-weight: 400;
+  padding: 11px 14px;
+  text-align: left;
+}
+
+.markdown table td {
+  border: none;
+  border-bottom: 1px solid var(--rni-n-100);
+  padding: 12px 14px;
+  vertical-align: top;
+}
+
+.markdown table tbody tr {
+  background: transparent;
+  border: none;
+}
+
+/* Zebra on the even row, as the artboard draws it. */
+.markdown table tbody tr:nth-child(even) {
+  background: var(--rni-n-50);
+}
+
+/* A table's first column is nearly always the symbol being described. */
+.markdown table td:first-child {
+  font-size: 13px;
+}
+
+.markdown table td:first-child code {
+  font-size: 12.5px;
+}
+
+/* ---------------------------------------------------------------- table of contents */
+
+.table-of-contents {
+  border-left: 1px solid var(--rni-n-100);
+  font-size: 13px;
+  padding: 8px 0 8px 16px;
+}
+
+.table-of-contents__link {
+  color: var(--rni-n-600);
+}
+
+.table-of-contents__link--active,
+.table-of-contents__link--active code {
+  color: var(--rni-accent);
+}
+
+.theme-doc-toc-desktop {
+  padding-top: 32px;
+}
+
+/* ================================================================ footer
+ *
+ * Infima's default footer is sized for a marketing site — 1.5rem headings, generous
+ * leading, centred copyright. None of the artboards draw a footer, so it is styled in the
+ * same idiom as the rest: mono column labels at the sidebar's scale, 13.5px links, and a
+ * hairline separating the trademark line, which is the only part that has to be there.
+ */
+
+.footer {
+  background: var(--rni-n-50);
+  border-top: 1px solid var(--rni-n-200);
+  font-size: 13.5px;
+  padding: 40px 40px 32px;
+}
+
+.footer .container {
+  margin: 0 auto;
+  max-width: 1440px;
+}
+
+.footer__links {
+  margin-bottom: 28px;
+}
+
+.footer__col {
+  margin-bottom: 0;
+}
+
+.footer__title {
+  color: var(--rni-n-600);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.footer__items {
+  line-height: 1.4;
+}
+
+.footer__item {
+  margin-top: 8px;
+}
+
+.footer__link-item {
+  color: var(--rni-n-600);
+  font-size: 13.5px;
+}
+
+.footer__link-item:hover {
+  color: var(--rni-accent);
+  text-decoration: none;
+}
+
+/* The external-link glyph Infima appends is noise at this size. */
+.footer__link-item svg {
+  display: none;
+}
+
+/**
+ * The trademark line. Left-aligned and small, not centred and prominent: it is a
+ * statement of fact that has to be present and findable, and centring it makes it read as
+ * a slogan.
+ */
+.footer__bottom {
+  border-top: 1px solid var(--rni-n-200);
+  padding-top: 20px;
+  text-align: left !important;
+}
+
+.footer__copyright {
+  color: var(--rni-n-600);
+  font-size: 12.5px;
+  line-height: 1.6;
+  max-width: 62em;
+}
+
+@media (max-width: 996px) {
+  .footer {
+    padding: 32px 24px 28px;
+  }
+}
+
+/* ================================================================ enrollment outcomes
+ *
+ * A reference list, not a picture. Three columns on a fixed rhythm — status, what it
+ * means, what your app does — so eleven rows stay aligned and scan top to bottom. The
+ * artboard's left/right split is not used: it was drawn for six outcomes and leaves one
+ * column empty and the other two screens long at eleven.
+ *
+ * Colour is redundant here, as it is everywhere else in this design: the group label and
+ * the verdict already say which group a row is in, so the border is confirmation rather
+ * than the only signal.
+ */
+
+.outcomes {
+  margin: 32px 0 0;
+}
+
+.outcomes__intro {
+  color: var(--rni-n-600);
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0 0 24px;
+}
+
+.outcomes__group {
+  border-left: 3px solid var(--rni-n-200);
+  margin-bottom: 28px;
+  padding-left: 20px;
+}
+
+.outcomes__group--run {
+  border-left-color: var(--rni-green);
+}
+
+.outcomes__group--handle {
+  border-left-color: var(--rni-amber);
+}
+
+.outcomes__group > header {
+  margin-bottom: 14px;
+}
+
+.outcomes__label {
+  color: var(--rni-n-600);
+  display: block;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.outcomes__group > header strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 5px;
+}
+
+.outcomes__group--run > header strong {
+  color: var(--rni-green);
+}
+
+.outcomes__group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* status · meaning · action, on one rhythm for every row in every group. */
+.outcomes__group li {
+  border-top: 1px solid var(--rni-n-100);
+  display: grid;
+  gap: 4px 20px;
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  padding: 12px 0;
+}
+
+.outcomes__group li > code {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  grid-row: span 2;
+  padding: 0;
+  word-break: break-word;
+}
+
+.outcomes__group--run li > code {
+  color: var(--rni-green);
+}
+
+.outcomes__group--handle li > code {
+  color: var(--rni-amber);
+}
+
+.outcomes__meaning,
+.outcomes__action {
+  font-size: 14.5px !important;
+  line-height: 1.55;
+  margin: 0 !important;
+}
+
+.outcomes__action {
+  color: var(--rni-n-600);
+}
+
+/* The one row that has to survive a skim. */
+.outcomes__emphasis {
+  background: var(--rni-accent-tint);
+  border-left: 2px solid var(--rni-accent);
+  color: var(--rni-accent-strong);
+  font-size: 14px !important;
+  font-weight: 500;
+  grid-column: 2;
+  line-height: 1.55;
+  margin: 6px 0 0 !important;
+  padding: 10px 12px;
+}
+
+@media (max-width: 768px) {
+  .outcomes__group li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .outcomes__group li > code {
+    grid-row: auto;
+  }
+
+  .outcomes__emphasis {
+    grid-column: 1;
+  }
+}
+
+/* ================================================================ pages without a TOC
+ *
+ * A page that hides its table of contents does so because its content is diagrams rather
+ * than prose, so the freed column goes to the diagrams — but the prose stays at the 760px
+ * reading width. Both, not one: widening the text as well would trade a cramped diagram
+ * for an unreadable line length.
+ *
+ * `:has()` is what makes this possible without a per-page class: Docusaurus does not mark
+ * the article when the TOC is hidden, it simply does not render it.
+ */
+/* Scoped to a docs page: the landing page also has no table of contents, and these
+ * widths have nothing to say about it. */
+/* `docsWrapper` is a hashed CSS-module class, so it has to be matched by substring — the
+ * plain name never matched anything and the rule silently did nothing. */
+[class*='docsWrapper'] main:not(:has(.theme-doc-toc-desktop)) article,
+[class*='docsWrapper'] main:not(:has(.theme-doc-toc-desktop)) .theme-doc-markdown {
+  max-width: 1080px;
+}
+
+[class*='docsWrapper'] main:not(:has(.theme-doc-toc-desktop)) .markdown > *:not(figure):not(.outcomes) {
+  max-width: 760px;
+}
+
+/**
+ * No search box on the landing page — artboard 3 draws the bar without one, and the
+ * landing page's job is the two calls to action, not a second way to leave.
+ *
+ * Driven from the page's own wrapper class rather than by swizzling the search component:
+ * the navbar sits outside the page wrapper, so `:has()` is what lets a page decide
+ * something about the chrome above it without a component override to maintain.
+ */
+body:has(.landing) [class*='navbarSearchContainer'],
+body:has(.landing) .navbar__search {
+  display: none;
+}
+
+/* ================================================================ landing sections
+ *
+ * The blocks that are not artboards 3 and 4. They borrow the artboards' type scale — the
+ * mono eyebrow at 12px/.1em, a 32px section heading against the hero's 54px — so the page
+ * reads as one design rather than a mock followed by a website.
+ *
+ * This block was deleted once by an over-eager tidy-up of unused rules, which is what
+ * "растянулся" looked like: with no `__inner` padding the section ran the full viewport
+ * width and the code grid collapsed to a single stretched column.
+ */
+
+.landing-section {
+  border-top: 1px solid var(--rni-n-100);
+}
+
+.landing-section--surface {
+  background: var(--rni-n-50);
+}
+
+.landing-section__inner {
+  margin: 0 auto;
+  max-width: 1440px;
+  padding: 72px 40px;
+}
+
+.landing-eyebrow {
+  color: var(--rni-accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.landing-section__head {
+  margin-bottom: 36px;
+  max-width: 52em;
+}
+
+.landing-section__head h2 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 14px 0 0;
+}
+
+.landing-section__head p {
+  color: var(--rni-n-600);
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 10px 0 0;
+}
+
+/* Code on the left, the branch it takes on the right. `auto` on the second column so the
+ * illustration keeps its drawn width and the code takes what is left, rather than both
+ * being stretched to half each. */
+.landing-code {
+  align-items: start;
+  display: grid;
+  gap: 48px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.landing-code__figure {
+  margin: 0;
+}
+
+.landing-code__figure figcaption {
+  color: var(--rni-n-600);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 12px;
+  max-width: 24rem;
+}
+
+.landing-closing {
+  border-top: 1px solid var(--rni-n-100);
+  text-align: center;
+}
+
+.landing-closing h2 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.landing-closing p {
+  color: var(--rni-n-600);
+  font-size: 16px;
+  line-height: 1.65;
+  margin: 12px auto 28px;
+  max-width: 42em;
+}
+
+.landing-closing__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* The artboard's own button treatment, reused rather than restated. */
+.landing-btn {
+  border: 1px solid var(--rni-n-200);
+  border-radius: 5px;
+  color: var(--rni-ink);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 13px 24px;
+}
+
+.landing-btn:hover {
+  color: var(--rni-ink);
+  text-decoration: none;
+}
+
+.landing-btn--primary {
+  background: var(--rni-accent);
+  border-color: var(--rni-accent);
+  color: var(--rni-paper);
+}
+
+.landing-btn--primary:hover {
+  color: var(--rni-paper);
+}
+
+@media (max-width: 1100px) {
+  .landing-code {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+}
+
+@media (max-width: 996px) {
+  .landing-section__inner {
+    padding: 48px 24px;
+  }
+}
+
+/* ================================================================ severity callouts
+ *
+ * Four levels, and the level is a risk model rather than a tone of voice. The same scale
+ * `doctor` uses, so a warning on a page and a warning in the terminal mean the same thing:
+ *
+ *   danger  (red)   — silent. It builds, it runs, it protects nothing. Nobody finds out.
+ *   warning (amber) — loud. The build breaks or the first sign-in fails. Costs an hour.
+ *   tip     (green) — measured on a device. Safe to rely on.
+ *   info    (grey)  — worth knowing before it surprises you.
+ *
+ * Red is reserved for the silent class and for destructive operations, and used nowhere
+ * else, so that seeing red on a page means exactly one thing.
+ */
+
+.theme-admonition-tip {
+  background: var(--rni-green-tint);
+  border: 1.5px solid var(--rni-green);
+  border-left-width: 4px;
+  padding: 18px 20px;
+}
+
+.theme-admonition-tip [class*='admonitionHeading'] {
+  color: var(--rni-green);
+}
+
+.theme-admonition-danger [class*='admonitionHeading'] {
+  color: var(--rni-red);
+}
+
+.theme-admonition-warning [class*='admonitionHeading'] {
+  color: var(--rni-amber);
+}
+
+.theme-admonition-info [class*='admonitionHeading'],
+.theme-admonition-note [class*='admonitionHeading'] {
+  color: var(--rni-n-600);
+}
+
+/* The danger class carries the same weight as the warning: its failures are the ones
+ * nobody is told about. */
+.theme-admonition-danger p {
+  color: var(--rni-ink);
+  font-size: 15px;
+  font-weight: 500;
+}

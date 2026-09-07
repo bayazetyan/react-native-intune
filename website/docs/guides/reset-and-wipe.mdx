@@ -1,0 +1,28 @@
+---
+id: reset-and-wipe
+title: Reset and wipe
+sidebar_position: 4
+---
+
+import { RemoteWipe } from '@site/src/components/diagrams/RemoteWipe';
+
+One code path, several callers: logout, a tenant change, Intune being switched off, an administrator-issued wipe, and a support reset. The process is expected to terminate part-way through, so the sequence survives that by design.
+
+<RemoteWipe />
+
+`reset()` unregisters the account, optionally wipes corporate data, and clears the runtime configuration. It is used for logout, tenant changes, Intune being switched off, remote wipes, and support resets.
+
+**On Android the app process is expected to terminate during this call.** Any code written after `await Intune.reset(...)` may never run. The module writes a journal before unregistering and finishes the sequence on the next launch — which is why the reconcile-at-launch pattern above is not optional.
+
+Two things the module cannot do for you:
+
+1. **Remove the account from the MSAL cache.** The module doesn't own MSAL. Skipping this causes the sign-in webview to autofill the previous user and the next enrollment to fail on account mismatch.
+2. **Delete your own local data.** Register `setResetHandler`.
+
+A wipe can also be initiated by the customer's IT with no prior call from your app:
+
+```ts
+Intune.onWipeRequested(({ accountId }) => { /* … */ });
+```
+
+---

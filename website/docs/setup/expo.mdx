@@ -1,0 +1,158 @@
+---
+id: expo
+title: Expo
+sidebar_position: 3
+---
+
+Expo users get almost the whole integration applied for them. Add the config plugin, run
+`expo prebuild`, and read the warnings it prints.
+
+```json title="app.json"
+{
+  "expo": {
+    "plugins": [
+      ["react-native-intune", { "androidSignatureHash": "Xo8W…yr9iU=" }]
+    ]
+  }
+}
+```
+
+## Two kinds of configuration, and they are not interchangeable
+
+This is the thing to get straight before anything else, because putting a value in the
+wrong place fails in a way that does not name the place.
+
+| | Where it goes | Why |
+|---|---|---|
+| **Build-time** | Plugin props in `app.json` | It has to be written into a native file — a plist key, an entitlement, a manifest activity. There is no runtime equivalent. |
+| **Runtime** | `configure()` in your code | It identifies a *tenant*. One build serves many customers, so these cannot be baked in. |
+
+Everything that identifies who you are talking to — `clientId`, `tenantId`, `authority`,
+`redirectUri` — is runtime, and comes from your own backend:
+
+```ts title="app/startup.ts"
+await Intune.configure({
+  clientId: cfg.aadClientId,
+  tenantId: cfg.aadTenantId,
+  authority: cfg.aadAuthority,
+  redirectUri: cfg.aadRedirectUri,
+});
+```
+
+:::danger[Do not put `ADALClientId`, `ADALAuthority` or `ADALRedirectUri` in the plist]
+The plugin deletes them if it finds them. A plist key alongside a runtime override is a
+known cause of enrollment failing with an authorization error, and `configure()` refuses to
+start when it sees one — so a prebuild that reintroduces them produces an app that cannot
+run.
+:::
+
+## Plugin props
+
+Three, and only one of them cannot be omitted.
+
+### `androidSignatureHash` — required for sign-in on Android
+
+The base64 SHA-1 of the certificate your app is signed with. It goes into the MSAL redirect
+activity, and it cannot be derived: an EAS build is signed with a keystore Expo manages, so
+only the project owner can read it.
+
+```bash
+eas credentials
+```
+
+The same value goes in your Entra app registration's redirect URI, where it is
+percent-encoded:
+
+```
+msauth://com.yourcompany.yourapp/Xo8W%2Fyr9iU%3D
+```
+
+The plugin writes the **decoded** form into the manifest. Same value, two spellings, in two
+places that must agree.
+
+:::warning[Without it, the redirect activity is skipped]
+The plugin warns and writes nothing rather than guessing a hash. A wrong hash fails at the
+first sign-in with an error that names neither key, which is a considerably worse afternoon
+than a warning during prebuild.
+:::
+
+### `maxFileProtectionLevel` — if your app reads its own files while locked
+
+The SDK's default, `NSFileProtectionComplete`, makes protected files unreadable roughly ten
+seconds after the device locks — enough to break a local database, a background sync, or
+anything on a timer.
+
+```json
+["react-native-intune", { "maxFileProtectionLevel": "completeUntilFirstUserAuthentication" }]
+```
+
+Accepted values are the `FileProtectionLevel` members: `complete`, `completeUnlessOpen`,
+`completeUntilFirstUserAuthentication`, `none`.
+
+### `keychainGroup` — only if your app already has its own MSAL cache group
+
+Defaults to `com.microsoft.adalcache`, which is what you want unless the app already uses
+something else. Set it and the plugin puts it in the entitlements **and** writes
+`ADALCacheKeychainGroupOverride` to match, because those two must never disagree.
+
+```json
+["react-native-intune", { "keychainGroup": "com.yourcompany.shared.cache" }]
+```
+
+Pass the same value to `configure({ keychainGroupOverride })`.
+
+:::info[Why this needs a prop at all]
+`ADALCacheKeychainGroupOverride` is plist-only — the SDK reads it at launch and there is no
+setter. `configure()` rejects `keychainGroupOverride` when the plist disagrees, rather than
+accepting a value it cannot apply. Since prebuild regenerates the plist, without this prop
+an Expo app could not use a custom group at all: it would fail with `E_PLIST_CONFLICT` and
+there would be nowhere to fix it.
+:::
+
+## What the plugin does
+
+| File | Change |
+|---|---|
+| Entitlements | Keychain sharing groups, in the required order, preserving any you already had |
+| `Info.plist` | The `msauth.…` URL type, broker query schemes, removal of the three `ADAL*` identity keys, and the two plist-only settings above |
+| `AndroidManifest.xml` | Broker `<queries>`, and the MSAL `BrowserTabActivity` |
+| `android/app/build.gradle` | The MAM Gradle plugin, applied to your app module |
+| `android/build.gradle` | The plugin jar and javassist on the buildscript classpath |
+| `MainApplication.kt` / `.java` | Superclass changed to `MAMApplication`, and the auth callback registered |
+
+## Why this is automatic here and manual everywhere else
+
+`npx react-native-intune setup` deliberately refuses to run on install, because the files
+it edits live in your git repository — a script that rewrites them fights your own changes
+and re-applies itself on every version bump.
+
+A config plugin has neither problem. It runs during `expo prebuild`, against the `android/`
+and `ios/` directories prebuild has just **generated**. There is nothing of yours to
+overwrite and nothing to re-apply later.
+
+That difference is why Expo users get the `MAMApplication` change automatically, while in a
+bare project [`doctor`](../doctor.mdx) can only tell you to make it yourself.
+
+## What the plugin cannot do
+
+**The `IntuneMAMConfigurator` build phase.** It is Microsoft's tool, it operates on your
+generated Xcode project, and it must be re-run whenever the plist, entitlements or SDK
+version change. Add it as a build phase yourself — see [iOS setup](./ios.mdx).
+
+**Kotlin DSL build files.** If your project uses `build.gradle.kts`, the plugin warns and
+leaves it alone rather than editing a file it cannot parse reliably.
+
+## Verifying it worked
+
+`expo prebuild` prints a warning for anything it skipped. Read them, then:
+
+```bash
+npx react-native-intune doctor
+```
+
+It inspects the generated projects the same way it inspects a bare one.
+
+:::danger[If prebuild warned that MainApplication could not be modified, stop]
+That is one of the omissions that builds successfully, runs, and leaves the app
+unprotected while everyone believes protection is in place. See [Traps](../notes/traps.mdx).
+:::
