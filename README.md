@@ -1,16 +1,30 @@
-# react-native-intune
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/bayazetyan/react-native-intune/main/.github/assets/banner-dark.png">
+    <img alt="react-native-intune — Microsoft Intune app protection for React Native" src="https://raw.githubusercontent.com/bayazetyan/react-native-intune/main/.github/assets/banner-light.png" width="820">
+  </picture>
+</p>
 
-Microsoft Intune app protection for React Native — **app-level data protection, not device
-management.** MSAL with broker support is included, so sign-in and enrollment work without
-a second SDK.
+<p align="center">
+  <a href="https://www.npmjs.com/package/react-native-intune"><img alt="npm" src="https://img.shields.io/npm/v/react-native-intune?color=4B5AE4&labelColor=1B2027"></a>
+  <a href="https://github.com/bayazetyan/react-native-intune/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bayazetyan/react-native-intune/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="./LICENSE"><img alt="MIT" src="https://img.shields.io/badge/licence-MIT-4B5AE4?labelColor=1B2027"></a>
+  <img alt="platforms" src="https://img.shields.io/badge/platforms-iOS%2017%2B%20%C2%B7%20Android%2024%2B-5A6478?labelColor=1B2027">
+  <img alt="React Native" src="https://img.shields.io/badge/React%20Native-0.74%2B%20new%20arch-5A6478?labelColor=1B2027">
+</p>
 
-**[Documentation](https://bayazetyan.github.io/react-native-intune/)** ·
-[Getting started](https://bayazetyan.github.io/react-native-intune/docs/getting-started) ·
-[Traps](https://bayazetyan.github.io/react-native-intune/docs/notes/traps) ·
-[API reference](https://bayazetyan.github.io/react-native-intune/docs/reference)
+<p align="center">
+  <a href="https://bayazetyan.github.io/react-native-intune/"><b>Documentation</b></a> ·
+  <a href="https://bayazetyan.github.io/react-native-intune/docs/getting-started">Getting started</a> ·
+  <a href="https://bayazetyan.github.io/react-native-intune/docs/notes/traps">Traps</a> ·
+  <a href="https://bayazetyan.github.io/react-native-intune/docs/reference">API reference</a>
+</p>
 
-> **Status: pre-alpha.** Implemented and verified on real devices against a real tenant,
-> but not released. Expect breaking changes until 1.0.
+---
+
+> **Status: pre-alpha.** Implemented and verified on real devices against a real tenant.
+> The public types changed twice in the fortnight before release, so expect breaking
+> changes until 1.0 and pin an exact version.
 
 *Not affiliated with, endorsed by, or sponsored by Microsoft. Microsoft, Intune and Entra
 are trademarks of the Microsoft group of companies.*
