@@ -22,8 +22,45 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msauth.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+				<string>msauth.$(PRODUCT_BUNDLE_IDENTIFIER)-intunemam</string>
+				<string>msauth.com.microsoft.intunemam</string>
+				<string>msauth.com.microsoft.intunemam-intunemam</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>scmx</string>
+		<string>smsec</string>
+		<string>microsoft-edge-http</string>
+		<string>microsoft-edge-http-intunemam</string>
+		<string>lookoutwork-ase</string>
+		<string>mvisionmobile</string>
+		<string>skycure</string>
+		<string>companyportal</string>
+		<string>lacoonsecurity</string>
+		<string>intunemam-mtd</string>
+		<string>msauthv2</string>
+		<string>wandera</string>
+		<string>betteractiveshield</string>
+		<string>msauthv3</string>
+		<string>microsoft-edge-https</string>
+		<string>microsoft-edge-https-intunemam</string>
+		<string>zips</string>
+		<string>ms-outlook</string>
+		<string>ms-outlook-intunemam</string>
+		<string>smart-ns</string>
+		<string>https-intunemam</string>
+		<string>http-intunemam</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -33,33 +70,6 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<!--
-			Where the sign-in comes back to. MSAL builds this from the bundle ID, and Entra
-			generated the matching redirect URI msauth.intune.example://auth. Without this the
-			system has nothing to route the callback to and the login never returns
-			(SPEC 5.1.2).
-			-->
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>msauth.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-			</array>
-		</dict>
-	</array>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<!--
-		Without these, iOS answers NO to canOpenURL regardless of what is installed, so
-		getBrokerStatus() reports a broker as absent and MSAL silently falls back to a
-		web view - losing the broker, and with it MAM enrollment (SPEC 5.1.2).
-		msauthv2/msauthv3 are what MSAL itself checks for Authenticator.
-		-->
-		<string>msauthv2</string>
-		<string>msauthv3</string>
-		<string>companyportal</string>
-	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>RCTNewArchEnabled</key>

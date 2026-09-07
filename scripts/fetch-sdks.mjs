@@ -185,7 +185,20 @@ function copyInto(from, toRel, { executable = false } = {}) {
 }
 
 /**
- * Mount a .dmg, copy one named file out of it, unmount. No-op off macOS.
+ * Copy one named file out of a .dmg. No-op off macOS.
+ *
+ * The disk image is **converted before it is attached**, and that is the whole trick.
+ * Microsoft ships this one with a software license agreement attached
+ * (`hdiutil imageinfo` reports `Software License Agreement: true`), and `hdiutil attach`
+ * blocks on it — the mount is refused with "attach canceled" and the extraction silently
+ * produced nothing. That is why the configurator was never in `vendor/` despite this
+ * function existing and being wired up.
+ *
+ * Converting strips the agreement resource from the copy, so the copy attaches without a
+ * prompt. Nothing is auto-accepted on the user's behalf: `fetch-sdks` already asked them
+ * to accept Microsoft's terms before downloading anything, and this avoids clicking
+ * through a second agreement in their name rather than doing it for them.
+ *
  * Returns the destination path, or null when extraction was not possible.
  */
 function extractFromDmg(dmgPath, innerName, destRel) {
@@ -194,14 +207,27 @@ function extractFromDmg(dmgPath, innerName, destRel) {
     return null;
   }
   let mountPoint = null;
+  let converted = null;
   try {
-    const out = execFileSync('hdiutil', ['attach', '-nobrowse', '-readonly', '-plist', dmgPath], {
-      encoding: 'utf8',
+    converted = path.join(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'rni-dmg-')),
+      'plain.dmg'
+    );
+    execFileSync('hdiutil', ['convert', dmgPath, '-format', 'UDRW', '-o', converted], {
+      stdio: 'pipe',
     });
+
+    const out = execFileSync(
+      'hdiutil',
+      ['attach', '-nobrowse', '-readonly', '-plist', converted],
+      { encoding: 'utf8' }
+    );
     // Cheap plist scrape: the mount point is the only /Volumes path in the output.
     mountPoint = (out.match(/<string>(\/Volumes\/[^<]+)<\/string>/) ?? [])[1] ?? null;
     if (!mountPoint) throw new Error('could not determine the mount point');
 
+    // Recursive, because the volume root is the .app bundle itself and the binary lives
+    // at Contents/MacOS/<name>.
     const found = walk(mountPoint).find((e) => !e.dir && path.basename(e.rel) === innerName);
     if (!found) throw new Error(`${innerName} was not inside the disk image`);
 
@@ -220,6 +246,9 @@ function extractFromDmg(dmgPath, innerName, destRel) {
       } catch {
         /* leaving a volume mounted is not worth failing the install over */
       }
+    }
+    if (converted) {
+      fs.rmSync(path.dirname(converted), { recursive: true, force: true });
     }
   }
 }
