@@ -105,6 +105,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "IntuneExample" */;
 			buildPhases = (
+				A1B2C3D40000000000000001 /* Run IntuneMAMConfigurator */,
 				C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
@@ -167,6 +168,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A1B2C3D40000000000000001 /* Run IntuneMAMConfigurator */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run IntuneMAMConfigurator";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Microsoft's own tool, run on this app's Info.plist and entitlements. A build phase and\n# not a manual step, because what it writes is not a fixed list: it adds the\n# msauth.$(PRODUCT_BUNDLE_IDENTIFIER)-intunemam URL scheme, two Microsoft schemes, and\n# sixteen LSApplicationQueriesSchemes entries covering the managed browser, Outlook and\n# every mobile threat-defence vendor the SDK knows about. That list changes between SDK\n# versions and nobody would keep it correct by hand.\n#\n# It is idempotent, so running it on every build is free.\nset -euo pipefail\n\nCONFIGURATOR=\"$SRCROOT/../../vendor/ios/IntuneMAMConfigurator\"\n\nif [ ! -x \"$CONFIGURATOR\" ]; then\n  echo \"error: IntuneMAMConfigurator is missing from vendor/ios.\"\n  echo \"note: run \\\"node scripts/fetch-sdks.mjs\\\" from the repository root.\"\n  echo \"note: this is not skippable — without it the Info.plist lacks the URL schemes the\"\n  echo \"note: SDK needs, and sign-in fails with an empty log rather than an error.\"\n  exit 1\nfi\n\n\"$CONFIGURATOR\" \\\n  -i \"$SRCROOT/$INFOPLIST_FILE\" \\\n  -e \"$SRCROOT/$CODE_SIGN_ENTITLEMENTS\"\n";
+		};
 		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
