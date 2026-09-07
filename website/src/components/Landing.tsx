@@ -21,23 +21,23 @@ export function LandingHero(): ReactNode {
                   <div style={{ fontSize: '18px', lineHeight: '1.6', color: 'var(--rni-n-600)', maxWidth: '34em', textWrap: 'pretty' }}>App Protection Policies on iOS and Android — PIN, copy-paste restrictions, conditional launch and remote wipe — on the employee’s own unmanaged phone.</div>
                   <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
                     <Link to="/docs/getting-started" style={{ background: 'var(--rni-accent)', color: 'var(--rni-paper)', fontSize: '15px', fontWeight: '500', padding: '13px 24px', borderRadius: '5px' }}>Get started</Link>
-                    <Link href="https://github.com/bayazetyan/react-native-intune" style={{ border: '1px solid #DBE0E9', fontSize: '15px', fontWeight: '500', padding: '13px 24px', borderRadius: '5px', color: 'var(--rni-ink)' }}>GitHub</Link>
+                    <Link href="https://github.com/bayazetyan/react-native-intune" style={{ border: '1px solid var(--rni-n-200)', fontSize: '15px', fontWeight: '500', padding: '13px 24px', borderRadius: '5px', color: 'var(--rni-ink)' }}>GitHub</Link>
                   </div>
-                  <div style={{ fontFamily: '\'IBM Plex Mono\',monospace', fontSize: '13px', color: 'var(--rni-n-600)', background: 'var(--rni-n-50)', border: '1px solid #ECEFF4', padding: '12px 14px', borderRadius: '5px', marginTop: '12px', width: 'fit-content' }}>npm i react-native-intune</div>
+                  <div style={{ fontFamily: '\'IBM Plex Mono\',monospace', fontSize: '13px', color: 'var(--rni-n-600)', background: 'var(--rni-n-50)', border: '1px solid var(--rni-n-100)', padding: '12px 14px', borderRadius: '5px', marginTop: '12px', width: 'fit-content' }}>npm i react-native-intune</div>
                 </div>
                 {/* hero illustration */}
-                <div style={{ position: 'relative', background: 'var(--rni-n-50)', border: '1px solid #ECEFF4', padding: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
+                <div style={{ position: 'relative', background: 'var(--rni-n-50)', border: '1px solid var(--rni-n-100)', padding: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: '190px' }}>
-                    <div style={{ border: '1.5px solid #98A1B3', background: 'var(--rni-paper)', borderRadius: '44px', padding: '14px 18px', textAlign: 'center' }}>
+                    <div style={{ border: '1.5px solid var(--rni-n-400)', background: 'var(--rni-paper)', borderRadius: '44px', padding: '14px 18px', textAlign: 'center' }}>
                       <div style={{ fontSize: '13px', fontWeight: '500' }}>Intune service</div>
                       <div style={{ fontSize: '11px', color: 'var(--rni-n-600)' }}>admin authors policy</div>
                     </div>
                     <svg width="150" height="26" viewBox="0 0 150 26" fill="none"><path d="M4 13 H132" style={{ stroke: 'var(--rni-accent)' }} strokeWidth="1.5"/><path d="M126 7 L134 13 L126 19" style={{ stroke: 'var(--rni-accent)' }} strokeWidth="1.5"/></svg>
                     <div style={{ fontFamily: '\'IBM Plex Mono\',monospace', fontSize: '11px', color: 'var(--rni-accent)' }}>policy → one app</div>
                   </div>
-                  <div style={{ width: '246px', border: '2px solid #98A1B3', borderRadius: '30px', background: 'var(--rni-paper)', padding: '12px' }}>
+                  <div style={{ width: '246px', border: '2px solid var(--rni-n-400)', borderRadius: '30px', background: 'var(--rni-paper)', padding: '12px' }}>
                     <div style={{ width: '52px', height: '4px', background: 'var(--rni-n-200)', borderRadius: '2px', margin: '2px auto 12px' }}></div>
-                    <div style={{ border: '2px dashed #4B5AE4', background: 'var(--rni-accent-tint)', borderRadius: '12px', padding: '12px' }}>
+                    <div style={{ border: '2px dashed var(--rni-accent)', background: 'var(--rni-accent-tint)', borderRadius: '12px', padding: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ width: '34px', height: '34px', background: 'var(--rni-accent)', borderRadius: '8px' }}></div>
                         <div><div style={{ fontSize: '13px', fontWeight: '500' }}>Your app</div><div style={{ fontSize: '11px', color: 'var(--rni-accent-strong)' }}>PIN · no copy out · no screenshot</div></div>
@@ -75,7 +75,7 @@ export function LandingFeatures(): ReactNode {
         <h2 style={{ fontSize: '32px', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.15, margin: '14px 0 0' }}>Six things worth knowing before you start</h2>
         <p style={{ fontSize: '16px', lineHeight: 1.6, color: 'var(--rni-n-600)', margin: '10px 0 0', maxWidth: '46em' }}>In the order that decides whether you can use it — starting with the one that is most often assumed the other way round.</p>
       </header>
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: '1px', background: 'var(--rni-n-100)', border: '1px solid #ECEFF4' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: '1px', background: 'var(--rni-n-100)', border: '1px solid var(--rni-n-100)' }}>
               <div style={{ background: 'var(--rni-paper)', padding: '32px' }}>
                 <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect x="3" y="2" width="26" height="28" rx="4" style={{ stroke: 'var(--rni-n-400)' }} strokeWidth="1.6"/><rect x="8" y="8" width="16" height="12" rx="2.5" style={{ stroke: 'var(--rni-accent)' }} strokeWidth="1.6" strokeDasharray="3 2.5"/><circle cx="16" cy="25" r="1.6" style={{ fill: 'var(--rni-n-400)' }}/></svg>
                 <div style={{ fontSize: '17px', fontWeight: '600', marginTop: '18px' }}>The app is protected, the phone is not.</div>
