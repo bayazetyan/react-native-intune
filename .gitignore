@@ -99,11 +99,9 @@ nitrogen/
 
 # Internal working documents — deliberately not published.
 #
-# SPEC.md is the contract this module is built against, TODO.md is the
-# device-verification log, and docs/customer-onboarding.md is written for us rather
-# than for a customer. They record tenant-specific findings, measurements against a
-# real tenant and decisions that are ours, not the library's public interface — which
-# lives in the README and the documentation site.
+# SPEC.md is the contract this module is built against and TODO.md is the
+# device-verification log. They record tenant-specific findings, measurements against
+# a real tenant and decisions that are ours, not the library's public interface —
+# which lives in the README and the documentation site.
 SPEC.md
 TODO.md
-docs/customer-onboarding.md
