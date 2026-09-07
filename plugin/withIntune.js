@@ -19,7 +19,11 @@
  *     ]
  *   }
  *
- * The one prop that matters is `androidSignatureHash`. It cannot be derived: an EAS
+ * Two props. `maxFileProtectionLevel` writes the plist-only `MaxFileProtectionLevel`
+ * key, which matters for any app that reads its own files while the screen is locked —
+ * the SDK's default makes them unreadable about ten seconds after the device locks.
+ *
+ * The one that cannot be omitted is `androidSignatureHash`. It cannot be derived: an EAS
  * build is signed with a keystore Expo manages, so the value comes from
  * `eas credentials` and only the project owner can read it. Without it the Android
  * redirect activity is skipped and a warning says so, rather than a plausible-looking
@@ -56,6 +60,23 @@ const BROKER_PACKAGES = [
 
 const QUERY_SCHEMES = ['msauthv2', 'msauthv3', 'companyportal'];
 
+/**
+ * `MaxFileProtectionLevel` is plist-only — the SDK reads it at launch and there is no
+ * runtime setter, which is why `configure()` rejects the option when the plist disagrees
+ * instead of ignoring it. Prebuild generates the plist, so this is exactly the kind of
+ * key a config plugin should be writing.
+ *
+ * Keys are the `FileProtectionLevel` values from the public API; values are what the SDK
+ * expects to read.
+ */
+const FILE_PROTECTION = {
+  complete: 'NSFileProtectionComplete',
+  completeUnlessOpen: 'NSFileProtectionCompleteUnlessOpen',
+  completeUntilFirstUserAuthentication:
+    'NSFileProtectionCompleteUntilFirstUserAuthentication',
+  none: 'NSFileProtectionNone',
+};
+
 const KEYCHAIN_GROUPS = [
   // The app's own group first. `$(PRODUCT_BUNDLE_IDENTIFIER)` rather than a literal,
   // because prebuild is where the bundle id is decided and it can differ per profile.
@@ -76,7 +97,7 @@ const withKeychainGroups = (config) =>
     return c;
   });
 
-const withMsalUrlScheme = (config) =>
+const withMsalUrlScheme = (config, { maxFileProtectionLevel }) =>
   withInfoPlist(config, (c) => {
     const scheme = 'msauth.$(PRODUCT_BUNDLE_IDENTIFIER)';
     const types = c.modResults.CFBundleURLTypes ?? [];
@@ -107,6 +128,23 @@ const withMsalUrlScheme = (config) =>
     if (settings && typeof settings === 'object') {
       for (const key of ['ADALClientId', 'ADALAuthority', 'ADALRedirectUri']) {
         delete settings[key];
+      }
+    }
+
+    if (maxFileProtectionLevel) {
+      const value = FILE_PROTECTION[maxFileProtectionLevel];
+      if (!value) {
+        WarningAggregator.addWarningIOS(
+          MARKER,
+          `maxFileProtectionLevel "${maxFileProtectionLevel}" is not one of ` +
+            `${Object.keys(FILE_PROTECTION).join(', ')}, so MaxFileProtectionLevel was ` +
+            'not written. configure() will reject the option rather than ignore it.'
+        );
+      } else {
+        c.modResults.IntuneMAMSettings = {
+          ...(settings ?? {}),
+          MaxFileProtectionLevel: value,
+        };
       }
     }
     return c;
@@ -242,10 +280,11 @@ const withMamApplicationClass = (config) =>
 
 const withIntune = (config, props = {}) => {
   const androidSignatureHash = props.androidSignatureHash ?? null;
+  const maxFileProtectionLevel = props.maxFileProtectionLevel ?? null;
 
   let next = config;
   next = withKeychainGroups(next);
-  next = withMsalUrlScheme(next);
+  next = withMsalUrlScheme(next, { maxFileProtectionLevel });
   next = withBrokerQueries(next);
   next = withRedirectActivity(next, { androidSignatureHash });
   next = withGradle(next);
