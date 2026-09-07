@@ -182,5 +182,11 @@
       "eslint"
     ],
     "version": "0.63.0"
+  },
+  "bin": {
+    "react-native-intune": "scripts/cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
