@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "Copy to tenant.json and fill in. The copy is gitignored, and `yarn ensure-tenant`",
+    "makes it for you — it runs before start, ios and android, so there is nothing to",
+    "remember.",
+    "",
+    "None of these are secrets. A public client application has no client secret, and both",
+    "GUIDs appear in the sign-in URLs any user of the app can see. They are gitignored",
+    "because a repository should not hand out one organisation's tenant as if it were a",
+    "default, not because they need protecting.",
+    "",
+    "Where to get them: entra.microsoft.com -> App registrations -> your app -> Overview.",
+    "`clientId` is 'Application (client) ID' and `tenantId` is 'Directory (tenant) ID'.",
+    "docs/tenant-setup.md walks through creating the registration from nothing."
+  ],
+
+  "tenantId": "00000000-0000-0000-0000-000000000000",
+  "clientId": "00000000-0000-0000-0000-000000000000",
+
+  "_redirectUri": [
+    "Optional. Leave these out and the app derives them from its own bundle id and",
+    "package name, which is what Entra generates for the platform entries.",
+    "",
+    "The Android form ends in the SHA-1 of the signing key, percent-encoded. The value",
+    "below is for the debug keystore React Native's template ships at",
+    "example/android/app/debug.keystore — the same file for everyone, so it needs no",
+    "editing unless you sign with your own key. Recompute with:",
+    "",
+    "  keytool -exportcert -alias androiddebugkey -keystore android/app/debug.keystore \\",
+    "    -storepass android | openssl sha1 -binary | openssl base64"
+  ],
+  "redirectUriIos": "msauth.intune.example://auth",
+  "redirectUriAndroid": "msauth://intune.example/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D",
+
+  "_testUpn": [
+    "Optional convenience: prefills the sign-in field on the example's screen so you are",
+    "not retyping an address on a phone keyboard. Nothing reads it in the module."
+  ],
+  "testUpn": ""
+}
