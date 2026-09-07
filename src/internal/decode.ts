@@ -22,6 +22,7 @@ import {
   type EnrollmentResult,
   type IntuneState,
   type PolicySnapshot,
+  type ResetReason,
   type RestartReason,
 } from '../types';
 
@@ -94,6 +95,23 @@ export function toEnrollmentStatus(value: unknown): EnrollmentStatus {
 
 const RESET_STAGES = new Set<string>(Object.values(ResetStage));
 
+const RESET_REASONS = new Set<string>([
+  'logout',
+  'tenant_changed',
+  'intune_disabled',
+  'remote_wipe',
+  'account_switch',
+  'support_reset',
+  'resume',
+]);
+
+/** Null rather than a guess: an unrecognised reason is not worth acting on. */
+export function toResetReason(value: unknown): ResetReason | null {
+  return typeof value === 'string' && RESET_REASONS.has(value)
+    ? (value as ResetReason)
+    : null;
+}
+
 export function toResetStage(value: unknown): ResetStage | null {
   return typeof value === 'string' && RESET_STAGES.has(value)
     ? (value as ResetStage)
@@ -122,6 +140,7 @@ export function toIntuneState(raw: object): IntuneState {
     enrolledAccountId: nullableStr(r.enrolledAccountId),
     status: r.status == null ? null : toEnrollmentStatus(r.status),
     pendingReset: toResetStage(r.pendingReset),
+    pendingResetReason: toResetReason(r.pendingResetReason),
   };
 }
 

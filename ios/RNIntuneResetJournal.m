@@ -46,6 +46,13 @@ static NSString *const RNIntuneJournalKey = @"com.reactnativeintune.resetJournal
   return [stage isKindOfClass:NSString.class] ? stage : nil;
 }
 
+- (nullable NSString *)reason
+{
+  id reason = self.entry[@"reason"];
+  // An empty string is not a reason; treat it as absent so callers get one nil to check.
+  return [reason isKindOfClass:NSString.class] && [reason length] > 0 ? reason : nil;
+}
+
 - (void)openWithAccountId:(nullable NSString *)accountId
                  tenantId:(nullable NSString *)tenantId
                      wipe:(BOOL)wipe

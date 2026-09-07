@@ -32,6 +32,10 @@ extern NSString *const RNIntuneResetStageCleaningLocal;
 /// Current stage, or nil. This is what `getState().pendingReset` reports.
 @property (nonatomic, readonly, nullable) NSString *stage;
 
+/// Why the open reset started, or nil. Reported as `getState().pendingResetReason` so a
+/// resume can pass the original reason on rather than flattening it to `'resume'`.
+@property (nonatomic, readonly, nullable) NSString *reason;
+
 /// Writes the entry at `UNREGISTERING`. Must return before the unregister call is made —
 /// after it, there may be no process left to write anything.
 - (void)openWithAccountId:(nullable NSString *)accountId
