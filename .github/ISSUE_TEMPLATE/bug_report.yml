@@ -14,7 +14,7 @@ body:
         broker is installed on the device, or the policy simply has not propagated yet.
         Propagation is on Microsoft's schedule, not ours.
 
-        [Before you open an issue](https://github.com/bayazetyan/react-native-intune#before-you-open-an-issue)
+        [Troubleshooting](https://bayazetyan.github.io/react-native-intune/docs/troubleshooting)
         lists the seven checks worth doing first, and `npx react-native-intune doctor`
         checks the project side for you.
 
@@ -28,7 +28,7 @@ body:
           required: true
         - label: I ran `npx react-native-intune doctor` and it reported nothing relevant.
           required: true
-        - label: I worked through "Before you open an issue" in the README.
+        - label: I worked through the Troubleshooting page.
           required: true
         - label: I searched for an existing issue.
           required: true
