@@ -16,10 +16,10 @@ import { DiagramFrame } from './DiagramFrame';
 export function HowMamWorks(): ReactNode {
   return (
     <DiagramFrame caption={"The boundary encloses one app. The phone is the employee's own, unenrolled, and nothing in this flow changes that."}>
-      <div style={{ width: '1200px', background: 'var(--rni-paper)', border: '1px solid #DBE0E9', padding: '48px' }}>
+      <div style={{ width: '1200px', background: 'var(--rni-paper)', border: '1px solid var(--rni-n-200)', padding: '48px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr 330px', gap: '28px', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ border: '1.5px solid #98A1B3', borderRadius: '46px', padding: '22px 24px', textAlign: 'center' }}>
+                <div style={{ border: '1.5px solid var(--rni-n-400)', borderRadius: '46px', padding: '22px 24px', textAlign: 'center' }}>
                   <div style={{ fontSize: '15px', fontWeight: '600' }}>Microsoft Intune service</div>
                   <div style={{ fontSize: '12.5px', color: 'var(--rni-n-600)', lineHeight: '1.5', marginTop: '4px' }}>Administrator authors an App Protection Policy and targets it at your app.</div>
                 </div>
@@ -44,11 +44,11 @@ export function HowMamWorks(): ReactNode {
                 </div>
               </div>
 
-              <div style={{ border: '2px solid #98A1B3', borderRadius: '34px', padding: '16px', background: 'var(--rni-paper)' }}>
+              <div style={{ border: '2px solid var(--rni-n-400)', borderRadius: '34px', padding: '16px', background: 'var(--rni-paper)' }}>
                 <div style={{ width: '56px', height: '4px', background: 'var(--rni-n-200)', borderRadius: '2px', margin: '2px auto 14px' }}></div>
                 <div style={{ fontSize: '11px', color: 'var(--rni-n-600)', textAlign: 'center', marginBottom: '12px', fontFamily: '\'IBM Plex Mono\',monospace' }}>personal, unenrolled phone</div>
 
-                <div style={{ border: '2px dashed #4B5AE4', background: 'var(--rni-accent-tint)', borderRadius: '12px', padding: '14px' }}>
+                <div style={{ border: '2px dashed var(--rni-accent)', background: 'var(--rni-accent-tint)', borderRadius: '12px', padding: '14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ width: '32px', height: '32px', background: 'var(--rni-accent)', borderRadius: '8px' }}></div>
                     <div><div style={{ fontSize: '14px', fontWeight: '600' }}>Your app</div><div style={{ fontSize: '11.5px', color: 'var(--rni-accent-strong)' }}>contains Intune App SDK</div></div>
@@ -64,9 +64,9 @@ export function HowMamWorks(): ReactNode {
                   <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--rni-n-400)', color: 'var(--rni-paper)', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
                 </div>
 
-                <div style={{ border: '1.5px solid #98A1B3', borderRadius: '12px', padding: '12px' }}>
+                <div style={{ border: '1.5px solid var(--rni-n-400)', borderRadius: '12px', padding: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '28px', height: '28px', background: 'var(--rni-n-100)', border: '1px solid #DBE0E9', borderRadius: '7px' }}></div>
+                    <div style={{ width: '28px', height: '28px', background: 'var(--rni-n-100)', border: '1px solid var(--rni-n-200)', borderRadius: '7px' }}></div>
                     <div><div style={{ fontSize: '13px', fontWeight: '500' }}>Broker app</div><div style={{ fontSize: '11.5px', color: 'var(--rni-n-600)' }}>Authenticator / Company Portal — holds work identity, returns token</div></div>
                   </div>
                 </div>
@@ -81,7 +81,7 @@ export function HowMamWorks(): ReactNode {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: '20px', marginTop: '40px', paddingTop: '28px', borderTop: '1px solid #ECEFF4' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: '20px', marginTop: '40px', paddingTop: '28px', borderTop: '1px solid var(--rni-n-100)' }}>
               <div style={{ fontSize: '12.5px', lineHeight: '1.55', color: 'var(--rni-n-600)' }}><strong style={{ color: 'var(--rni-ink)' }}>1</strong>  Employee signs in with their work account; the app hands sign-in to the broker.</div>
               <div style={{ fontSize: '12.5px', lineHeight: '1.55', color: 'var(--rni-n-600)' }}><strong style={{ color: 'var(--rni-ink)' }}>2</strong>  Broker returns a token proving who they are.</div>
               <div style={{ fontSize: '12.5px', lineHeight: '1.55', color: 'var(--rni-n-600)' }}><strong style={{ color: 'var(--rni-ink)' }}>3</strong>  App registers that identity with Intune. <span style={{ color: 'var(--rni-accent-strong)' }}>This is enrollment of the app — the device does not enroll.</span></div>
