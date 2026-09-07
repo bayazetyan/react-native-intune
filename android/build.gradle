@@ -92,6 +92,38 @@ gradle.taskGraph.whenReady { graph ->
   }
 }
 
+/**
+ * Disable AAR packaging for this library, with a message that says why.
+ *
+ * `./gradlew assembleDebug` from a consumer's android/ directory assembles every module,
+ * including this one, and `:react-native-intune:bundleDebugAar` then fails with "Direct
+ * local .aar file dependencies are not supported when building an AAR". People run that
+ * command, and the error names our library, so it reads as our bug.
+ *
+ * It is not a workaround for a problem we could otherwise solve. AGP's own message says
+ * the AAR "would be broken because the classes and Android resources from any local .aar
+ * file dependencies would not be packaged" — so the output being skipped is an output
+ * that could never have been correct. The MAM SDK is distributed as a file from
+ * Microsoft's GitHub, not from Maven Central, so there is no coordinate to depend on
+ * instead.
+ *
+ * Nothing is lost: autolinking consumes this library as a Gradle *project*, so its AAR is
+ * never built for a consumer. `:app:assembleDebug` was always the working form; now the
+ * root form works too.
+ */
+tasks.configureEach { task ->
+  if (task.name ==~ /bundle.*Aar/) {
+    task.enabled = false
+    task.doFirst {
+      logger.lifecycle(
+        "[react-native-intune] Skipping ${task.name}: this library depends on the MAM " +
+        "SDK as a local .aar, so AGP cannot package a valid AAR for it. Consumers " +
+        "autolink it as a Gradle project and never need one."
+      )
+    }
+  }
+}
+
 dependencies {
   implementation "com.facebook.react:react-android"
 

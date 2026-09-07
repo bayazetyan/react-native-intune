@@ -1,5 +1,5 @@
 name: 🐛 Bug report
-description: Report a reproducible bug or regression in this library.
+description: Report a reproducible bug in this library.
 labels: [bug]
 body:
   - type: markdown
@@ -7,61 +7,117 @@ body:
       value: |
         # Bug report
 
-        👋 Hi!
+        **Please read this first — it is not boilerplate.**
 
-        **Please fill the following carefully before opening a new issue ❗**
-        *(Your issue may be closed if it doesn't provide the required pieces of information)*
+        Most reports about this library turn out to be one of four things outside it: the
+        account is not licensed for Intune, no App Protection Policy targets the app, no
+        broker is installed on the device, or the policy simply has not propagated yet.
+        Propagation is on Microsoft's schedule, not ours.
+
+        [Before you open an issue](https://github.com/bayazetyan/react-native-intune#before-you-open-an-issue)
+        lists the seven checks worth doing first, and `npx react-native-intune doctor`
+        checks the project side for you.
+
+        Nothing below asks for a token, an account ID or a UPN. **Please do not paste
+        them** — redact them if they appear in a log.
   - type: checkboxes
     attributes:
-      label: Before submitting a new issue
-      description: Please perform simple checks first.
+      label: Before submitting
       options:
-        - label: I tested using the latest version of the library, as the bug might be already fixed.
+        - label: I am on the latest version of this library.
           required: true
-        - label: I tested using a [supported version](https://github.com/reactwg/react-native-releases/blob/main/docs/support.md) of react native.
+        - label: I ran `npx react-native-intune doctor` and it reported nothing relevant.
           required: true
-        - label: I checked for possible duplicate issues, with possible answers.
+        - label: I worked through "Before you open an issue" in the README.
+          required: true
+        - label: I searched for an existing issue.
           required: true
   - type: textarea
     id: summary
     attributes:
-      label: Bug summary
+      label: What happens
       description: |
-        Provide a clear and concise description of what the bug is.
-        If needed, you can also provide other samples: error messages / stack traces, screenshots, gifs, etc.
+        What you expected, what happened instead. Error messages and stack traces help;
+        screenshots of the Intune console help more than descriptions of it.
+    validations:
+      required: true
+  - type: textarea
+    id: native-result
+    attributes:
+      label: nativeCode and nativeMessage
+      description: |
+        From the rejected promise or the enrollment result. These are the two fields that
+        distinguish an SDK refusal from a configuration mistake, and without them almost
+        every report needs a round trip. Paste the whole result object with any account
+        identifiers removed.
+      render: json
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - iOS
+        - Android
     validations:
       required: true
   - type: input
-    id: library-version
+    id: versions
     attributes:
-      label: Library version
-      description: What version of the library are you using?
-      placeholder: "x.x.x"
+      label: Versions
+      description: This library, React Native, and the OS version of the device you ran on.
+      placeholder: "react-native-intune 0.1.0, RN 0.85.1, iPadOS 26.1"
+    validations:
+      required: true
+  - type: input
+    id: mam-sdk
+    attributes:
+      label: Pinned MAM SDK version
+      description: From `sdk-versions.json`, or your own pin if you changed it.
+      placeholder: "iOS 21.8.0 / Android 12.4.0"
+    validations:
+      required: true
+  - type: checkboxes
+    id: tenant-state
+    attributes:
+      label: Tenant and device state
+      description: |
+        These four decide the outcome of every enrollment, and each is a separate thing —
+        a licence existing in the tenant is not the same as being assigned to the user.
+      options:
+        - label: The account has an Intune licence **assigned to it**.
+        - label: An App Protection Policy **targets this app**, for a group this account is in.
+        - label: A broker is installed — Company Portal (required on Android), Authenticator or Company Portal on iOS.
+        - label: The policy was created or changed more than 30 minutes ago.
+  - type: dropdown
+    id: other-mam-apps
+    attributes:
+      label: Other Intune-integrated apps on the device?
+      description: |
+        Outlook, Teams, OneDrive and the like share policy state and the global PIN timer,
+        which changes what you observe. Microsoft's own test guidance is to remove them.
+      options:
+        - "No, the device has none"
+        - "Yes"
+        - "I don't know"
     validations:
       required: true
   - type: textarea
-    id: react-native-info
-    attributes:
-      label: Environment info
-      description: Run `react-native info` in your terminal and paste the results here.
-      render: shell
-    validations:
-      required: true
-  - type: textarea
-    id: steps-to-reproduce
+    id: steps
     attributes:
       label: Steps to reproduce
-      description: |
-        You must provide a clear list of steps and code to reproduce the problem.
       value: |
         1. …
         2. …
     validations:
       required: true
   - type: input
-    id: reproducible-example
+    id: repro
     attributes:
-      label: Reproducible example repository 
-      description: Please provide a link to a repository on GitHub with a reproducible example.
-    validations:
-      required: true
+      label: Reproducible example
+      description: |
+        A link to a repository, if you have one. Optional — enrollment needs your tenant
+        and your signing key, so a runnable repro is often impossible. Say so rather than
+        leaving this blank without explanation.
