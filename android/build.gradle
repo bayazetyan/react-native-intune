@@ -48,6 +48,11 @@ android {
 
   defaultConfig {
     minSdkVersion getExtOrDefault("minSdkVersion")
+
+    // Shipped to consumers, because a release build with R8 fails without them and only
+    // a release build does — debug and unminified release both succeed, so an app finds
+    // out when it ships. See the file for what each rule is for.
+    consumerProguardFiles "consumer-rules.pro"
   }
 
   compileOptions {
