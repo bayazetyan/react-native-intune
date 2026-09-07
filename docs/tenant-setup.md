@@ -122,13 +122,25 @@ Produces `clientId`, `tenantId` and the two redirect URIs.
 | Signature hash | `Xo8WBi6jzSxKDVR4drqm84yr9iU=` |
 | Entra will show | `msauth://intune.example/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D` |
 
-The hash above is this machine's debug keystore, read on 4 September 2026. A different
-machine has a different one — re-derive it with:
+The hash above is of `example/android/app/debug.keystore` — the keystore React Native's
+template ships and the example app is actually signed with. It is the same file for
+everyone, so the value needs no editing unless you sign with your own key.
+
+**Not** `~/.android/debug.keystore`, which is per-machine and is a different key. Using
+that one is why the first Android sign-in failed here: MSAL rejected the redirect URI, and
+the error named neither keystore. Re-derive from the keystore the `signingConfigs` block
+actually names:
 
 ```bash
 keytool -exportcert -alias androiddebugkey \
-  -keystore ~/.android/debug.keystore -storepass android \
+  -keystore example/android/app/debug.keystore -storepass android \
   | openssl sha1 -binary | openssl base64
+```
+
+Cross-check against the built artifact, which is the only authority on what signed it:
+
+```bash
+apksigner verify --print-certs app-debug.apk    # SHA-1 in hex; base64 those bytes
 ```
 
 > **One hash is enough today — but know when a second one appears.**
