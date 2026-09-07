@@ -32,7 +32,9 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-const VALID_ACCOUNT_ID = '3ec2c00f-b125-4519-acf0-302ac3761822';
+// Synthetic on purpose. The test only needs a well-formed GUID, and one that looks
+// like a real account identifier invites the question of whose it is.
+const VALID_ACCOUNT_ID = '11111111-2222-3333-4444-555555555555';
 
 describe('enrollment status narrowing', () => {
   it('maps a status this version does not know to Unknown instead of throwing', async () => {
