@@ -394,6 +394,37 @@ static NSString *const RNIntuneCompanyPortalScheme = @"companyportal";
 - (void)enrollAccountId:(NSString *)accountId
              completion:(void (^)(NSDictionary<NSString *, id> *))completion
 {
+  // Already enrolled with *this* account? Answer now.
+  //
+  // `registerAndEnrollAccountId:` for an account the SDK already holds is a no-op that
+  // reports nothing at all — no delegate callback, no notification. The correlation below
+  // would then wait for a result that is never coming and settle as `pending` at the
+  // 90-second timeout, which is slow and untrue. Observed on an iPad.
+  //
+  // The same defect was found and fixed on Android, where the SDK is at least explicit
+  // about it in logcat ("skipping already registered account"). iOS is silent.
+  //
+  // Only for the same account, deliberately. A *different* account already being enrolled
+  // is the `wrongUser` case, and there the SDK does react — it shows its own account
+  // removal UI — so short-circuiting it would hide behaviour the caller needs to see.
+  NSString *enrolled = IntuneMAMEnrollmentManager.instance.enrolledAccountId;
+  if (enrolled.length > 0 && [enrolled isEqualToString:accountId]) {
+    completion(@{
+      // Through the mapping table rather than a literal, so there is one definition of
+      // what a success is called (SPEC §4.1).
+      @"status" : [RNIntuneDelegates
+          unifiedStatusForCode:IntuneMAMEnrollmentStatusPoliciesHaveNotChanged],
+      @"accountId" : accountId,
+      // Module-supplied, like RNIntuneTimeout: the SDK produced no status object here
+      // because it was never asked to do any work.
+      @"nativeCode" : @"RNIntuneAlreadyEnrolled",
+      @"nativeMessage" : @"The account was already enrolled, so the SDK was not asked "
+                         @"to enroll it again.",
+      @"restartRequired" : @NO,
+    });
+    return;
+  }
+
   [_pending awaitEnrollment:accountId completion:completion];
 }
 
