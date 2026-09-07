@@ -52,6 +52,12 @@ example/ios/*.xcworkspace/
 # Ruby
 example/vendor/
 
+# The example's tenant. Created from tenant.example.json by `yarn ensure-tenant`, which
+# runs before start/ios/android. Not secret — a public client has no secret and both GUIDs
+# are visible in sign-in URLs — but a repository should not hand out one organisation's
+# tenant as if it were a default.
+example/tenant.json
+
 # node.js
 #
 node_modules/
