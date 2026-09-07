@@ -51,6 +51,10 @@ export default function App() {
   const [configureResult, setConfigureResult] = useState('not called');
   const [enrollResult, setEnrollResult] = useState('not called');
   const [tokenAsked, setTokenAsked] = useState('never');
+  // Service-initiated events. They arrive with no app call at all, so a console log is
+  // not enough to observe them — on iOS the bundle is embedded and there is no console.
+  const [lastWipe, setLastWipe] = useState('never');
+  const [lastRestart, setLastRestart] = useState('never');
   const [authResult, setAuthResult] = useState('not called');
   const [authUser, setAuthUser] = useState('—');
   const [authAccountId, setAuthAccountId] = useState('—');
@@ -231,9 +235,16 @@ export default function App() {
     // Subscribed before anything else is called: a service-initiated wipe can arrive
     // with no prior app call at all (SPEC §4.4).
     const subs = [
-      Intune.onWipeRequested(({ accountId }) =>
-        console.log('wipeRequested', accountId)
-      ),
+      Intune.onWipeRequested(({ accountId }) => {
+        // Only the first characters: enough to tell which account, without putting a
+        // full identifier on a debug screen.
+        // Nullable on purpose: a service-initiated wipe can arrive without naming an
+        // account, which is itself worth seeing rather than hiding behind a default.
+        const who =
+          accountId != null ? `${accountId.slice(0, 8)}…` : '(no account)';
+        setLastWipe(`${new Date().toLocaleTimeString()} ${who}`);
+        refresh().catch(() => {});
+      }),
       Intune.onEnrollmentResult((r) => {
         console.log('enrollmentResult', r.status);
         refresh().catch(() => {});
@@ -242,9 +253,9 @@ export default function App() {
         console.log('policyChanged');
         refresh().catch(() => {});
       }),
-      Intune.onRestartRequired(({ reason }) =>
-        console.log('restartRequired', reason)
-      ),
+      Intune.onRestartRequired(({ reason }) => {
+        setLastRestart(`${new Date().toLocaleTimeString()} ${reason}`);
+      }),
     ];
 
     const load = async () => {
@@ -259,10 +270,31 @@ export default function App() {
         setBroker(null);
       }
 
+      // Resume an interrupted reset before anything else (SPEC §13.2).
+      //
+      // The reset sequence is expected to be cut short by the process dying: on Android
+      // Microsoft documents it, and on iOS it happens too once a policy is actually in
+      // force — observed on an iPad, where the app survived a reset while the tenant had
+      // no restrictions and was killed by the wipe once it did. Everything after the
+      // unregister therefore lives in the journal, and this is where it gets picked up.
+      //
+      // Skipping this is the failure the journal exists to prevent: the account is gone
+      // from the SDK but the app's own data was never cleared, and nothing will ever come
+      // back to clear it.
+      const pending = await Intune.getState().catch(() => null);
+      if (pending?.pendingReset != null) {
+        setEnrollResult(`resuming reset (${pending.pendingReset})`);
+        // Lands back in the same reset() as the original call — the handler runs, then
+        // the journal closes. `reason: 'resume'` is what distinguishes it in the audit
+        // trail from the reset that started it.
+        await Intune.reset({ wipe: true, reason: 'resume' }).catch((e) => {
+          setEnrollResult(`resume failed: ${describe(e)}`);
+        });
+      }
+
       // Every launch, not once. The module holds the configuration in memory only, on
       // purpose: a host app fetches it per customer at startup, so a tenant change takes
-      // effect on the next launch instead of leaving stale settings behind. This is also
-      // where the reconcile-at-launch pattern starts (SPEC §13.2).
+      // effect on the next launch instead of leaving stale settings behind.
       await runConfigure();
     };
 
@@ -322,6 +354,8 @@ export default function App() {
       <Row label="cached accounts" value={cachedAccounts} />
       <Row label="result" value={enrollResult} />
       <Row label="token asked for" value={tokenAsked} />
+      <Row label="wipeRequested" value={lastWipe} />
+      <Row label="restartRequired" value={lastRestart} />
       <View style={styles.buttons}>
         <Button label="signIn + enroll" onPress={runSignInAndEnroll} />
         <Button label="silent" onPress={runSignInSilent} />
