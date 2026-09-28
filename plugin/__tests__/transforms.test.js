@@ -78,6 +78,71 @@ describe('withMamApplication', () => {
   });
 
   /**
+   * What 0.1.0 wrote for KOTLIN_APP, captured by running that version's transform — not
+   * reconstructed by hand. `expo prebuild` without `--clean` runs plugins against a file
+   * a previous run already touched, and this file registers the callback, so without the
+   * migration the idempotency guard would leave it as it is: on the version that fixes
+   * #5, still not compiling.
+   */
+  const WRITTEN_BY_0_1_0 = `package com.acme
+
+import android.app.Application
+import com.facebook.react.PackageList
+import com.microsoft.intune.mam.client.app.MAMApplication
+import com.reactnativeintune.RNIntuneAuthCallback
+
+class MainApplication : MAMApplication(), ReactApplication {
+  override fun onCreate() {
+    super.onCreate()
+    // react-native-intune: the MAM plugin rewrites onCreate into onMAMCreate at build
+    // time, so this belongs here rather than in an onMAMCreate we write.
+    RNIntuneAuthCallback.register(this)
+    SoLoader.init(this, false)
+  }
+}
+`;
+
+  it('reverts the superclass a 0.1.0 prebuild wrote, and leaves the callback once', () => {
+    const out = withMamApplication(WRITTEN_BY_0_1_0, 'kt');
+    expect(out).toContain(
+      'class MainApplication : Application(), ReactApplication'
+    );
+    expect(out).not.toContain('MAMApplication');
+    expect(out).toContain('import android.app.Application');
+    expect(out.match(/RNIntuneAuthCallback\.register/g)).toHaveLength(1);
+    // And it lands on what a fresh run produces, so the two paths cannot drift apart.
+    expect(out).toBe(withMamApplication(KOTLIN_APP, 'kt'));
+  });
+
+  it('reverts the Java form 0.1.0 wrote', () => {
+    const legacy = withMamApplication(JAVA_APP, 'java')
+      .replace('extends Application', 'extends MAMApplication')
+      .replace(
+        'import com.reactnativeintune.RNIntuneAuthCallback;',
+        'import com.microsoft.intune.mam.client.app.MAMApplication;\nimport com.reactnativeintune.RNIntuneAuthCallback;'
+      );
+    expect(withMamApplication(legacy, 'java')).toBe(
+      withMamApplication(JAVA_APP, 'java')
+    );
+  });
+
+  /**
+   * The migration keys on this transform's own comment. Without it, a MAMApplication
+   * superclass was written by the app's developer, who presumably put the SDK on their
+   * classpath, and is not ours to change.
+   */
+  it('does not revert a MAMApplication superclass it did not write', () => {
+    const own = KOTLIN_APP.replace(
+      ': Application()',
+      ': MAMApplication()'
+    ).replace(
+      'SoLoader.init(this, false)',
+      'RNIntuneAuthCallback.register(this)\n    SoLoader.init(this, false)'
+    );
+    expect(withMamApplication(own, 'kt')).toBe(own);
+  });
+
+  /**
    * An app that wired the SDK into its own module may already extend MAMApplication, and
    * that is valid — the plugin's rewrite is then a no-op. The transform must still add
    * the callback rather than refuse the file.
