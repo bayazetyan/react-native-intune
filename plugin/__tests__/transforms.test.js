@@ -42,15 +42,50 @@ public class MainApplication extends Application implements ReactApplication {
 `;
 
 describe('withMamApplication', () => {
-  it('changes the Kotlin superclass and registers the callback in onCreate', () => {
+  it('registers the callback in onCreate', () => {
     const out = withMamApplication(KOTLIN_APP, 'kt');
-    expect(out).toContain(
-      'class MainApplication : MAMApplication(), ReactApplication'
-    );
-    expect(out).toContain(
-      'import com.microsoft.intune.mam.client.app.MAMApplication'
-    );
     expect(out).toContain('import com.reactnativeintune.RNIntuneAuthCallback');
+    expect(out).toContain('RNIntuneAuthCallback.register(this)');
+  });
+
+  /**
+   * Issue #5, and the test that would have caught it. Rewriting the superclass in source
+   * cannot compile in a consumer app: the MAM AAR is `implementation files(...)` here and
+   * `implementation` is not transitive, so `MAMApplication` is not on the app module's
+   * compile classpath. The superclass belongs to the Gradle plugin, which rewrites it in
+   * bytecode — which is what the example app has always relied on.
+   *
+   * These assertions are inverted from the ones they replace. The old ones passed, and
+   * they were asserting the defect.
+   */
+  it('leaves the superclass alone — the Gradle plugin rewrites it in bytecode', () => {
+    for (const [src, lang, unchanged] of [
+      [
+        KOTLIN_APP,
+        'kt',
+        'class MainApplication : Application(), ReactApplication',
+      ],
+      [
+        JAVA_APP,
+        'java',
+        'public class MainApplication extends Application implements ReactApplication',
+      ],
+    ]) {
+      const out = withMamApplication(src, lang);
+      expect(out).toContain(unchanged);
+      expect(out).not.toContain('MAMApplication');
+    }
+  });
+
+  /**
+   * An app that wired the SDK into its own module may already extend MAMApplication, and
+   * that is valid — the plugin's rewrite is then a no-op. The transform must still add
+   * the callback rather than refuse the file.
+   */
+  it('accepts a class that already extends MAMApplication', () => {
+    const src = KOTLIN_APP.replace(': Application()', ': MAMApplication()');
+    const out = withMamApplication(src, 'kt');
+    expect(out).toContain('class MainApplication : MAMApplication()');
     expect(out).toContain('RNIntuneAuthCallback.register(this)');
   });
 
@@ -86,12 +121,9 @@ describe('withMamApplication', () => {
     }
   });
 
-  it('handles Java, without leaving Kotlin constructor parentheses behind', () => {
+  it('handles Java, with its own import and statement terminators', () => {
     const out = withMamApplication(JAVA_APP, 'java');
-    expect(out).toContain(
-      'class MainApplication extends MAMApplication implements'
-    );
-    expect(out).not.toContain('MAMApplication()');
+    expect(out).toContain('import com.reactnativeintune.RNIntuneAuthCallback;');
     expect(out).toContain('RNIntuneAuthCallback.register(this);');
   });
 

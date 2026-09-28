@@ -285,9 +285,9 @@ const withMamApplicationClass = (config) =>
       // leaving the app unprotected. A quiet skip here is the worst outcome available.
       WarningAggregator.addWarningAndroid(
         MARKER,
-        'Could not make MainApplication extend MAMApplication — its shape was not ' +
-          'recognised. THE APP WILL BUILD AND RUN WITHOUT PROTECTION until this is ' +
-          'done by hand. Run `npx react-native-intune doctor` for the exact change.'
+        'Could not register the MAM auth callback in MainApplication — its shape was ' +
+          'not recognised. THE APP WILL BUILD AND RUN WITHOUT PROTECTION until this ' +
+          'is done by hand. Run `npx react-native-intune doctor` for the exact change.'
       );
       return c;
     }
