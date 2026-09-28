@@ -49,30 +49,58 @@ export const KEYCHAIN_GROUPS = [
 
 // ---------------------------------------------------------------- android
 
+/**
+ * Source text with `//` and block comments removed, for Gradle, Kotlin and Java alike.
+ *
+ * Every check that reads source for a declaration goes through this, because matching
+ * text that includes comments is how `android-mam-application` reported this
+ * repository's own example as passing for as long as it existed (issue #5). A `//` is
+ * only a comment after whitespace or at the start of a line, so `https://` in a
+ * repository URL survives.
+ */
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
+}
+
+/**
+ * An actual application of the plugin: `apply plugin: "…"`, `id "…"` or `id("…")`. The
+ * closing quote is required, so the `com.microsoft.intune.mam.build` classpath entry in
+ * the root build file does not count.
+ */
+const MAM_PLUGIN_APPLIED =
+  /(?:apply\s+plugin\s*:\s*|\bid\s*\(?\s*)['"]com\.microsoft\.intune\.mam['"]/;
+
+/**
+ * Whether the MAM Gradle plugin is applied to the app module. Shared by the plugin check
+ * and the Application check, which both depend on the answer and must never disagree
+ * about it.
+ */
+function mamPluginApplied(project) {
+  const a = project.android;
+  if (a.appBuildGradleKts && !a.appBuildGradle) {
+    return {
+      state: 'unknown',
+      detail:
+        'app/build.gradle.kts — the Kotlin DSL is not inspected. Check by hand that ' +
+        'the plugin is applied.',
+    };
+  }
+  const src = read(a.appBuildGradle);
+  if (!src) {
+    return { state: 'unknown', detail: 'android/app/build.gradle not found' };
+  }
+  return MAM_PLUGIN_APPLIED.test(stripComments(src))
+    ? { state: 'ok' }
+    : { state: 'missing' };
+}
+
 const androidChecks = [
   {
     id: 'android-mam-plugin',
     platform: 'android',
     title: 'MAM Gradle plugin applied to the app module',
     severity: 'silent',
-    inspect(project) {
-      const a = project.android;
-      if (a.appBuildGradleKts && !a.appBuildGradle) {
-        return {
-          state: 'unknown',
-          detail:
-            'app/build.gradle.kts — the Kotlin DSL is not inspected. Check by hand ' +
-            'that the plugin is applied.',
-        };
-      }
-      const src = read(a.appBuildGradle);
-      if (!src) {
-        return { state: 'unknown', detail: 'android/app/build.gradle not found' };
-      }
-      return /com\.microsoft\.intune\.mam/.test(src)
-        ? { state: 'ok' }
-        : { state: 'missing' };
-    },
+    inspect: mamPluginApplied,
     why:
       'The plugin rewrites bytecode across the app and every dependency. Applied to ' +
       'the library instead of the app module it rewrites only the library, builds ' +
@@ -195,29 +223,50 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
         };
       }
 
-      // A class declaration, never a mention. `MAMApplication` in a comment says
-      // nothing about what the app extends.
-      const declared =
-        /class\s+\w+\s*(?::\s*|\s+extends\s+)MAMApplication\b/;
-      const explicit = sources.find((f) => declared.test(read(f)));
+      // A class declaration, never a mention: comments are stripped first, so neither
+      // an explanatory comment nor a commented-out example counts.
+      const declared = /class\s+\w+\s*(?::\s*|\s+extends\s+)MAMApplication\b/;
+      const explicit = sources.find((f) => declared.test(stripComments(read(f))));
+      const a = project.android;
+
       if (explicit) {
+        // Legitimate only when the app module has the SDK on its own compile classpath.
+        // This package declares the AAR as `implementation`, which is not transitive,
+        // so without that the supertype does not resolve — exactly the shape a 0.1.0
+        // Expo prebuild wrote, which must not read as protected (issue #5).
+        if (a.appBuildGradleKts && !a.appBuildGradle) {
+          return {
+            state: 'unknown',
+            detail:
+              `${rel(project, explicit)} extends MAMApplication directly, and the ` +
+              'Kotlin DSL build file is not inspected — check by hand that the MAM SDK ' +
+              'is on the app module\u2019s classpath, or this does not compile.',
+          };
+        }
+        const gradle = stripComments(read(a.appBuildGradle));
+        if (/Microsoft\.Intune\.MAM\.SDK/.test(gradle)) {
+          return {
+            state: 'ok',
+            detail: `${rel(project, explicit)} extends MAMApplication directly`,
+          };
+        }
         return {
-          state: 'ok',
-          detail: `${rel(project, explicit)} extends MAMApplication directly`,
+          state: 'wrong',
+          detail:
+            `${rel(project, explicit)} extends MAMApplication in source, but the MAM ` +
+            'SDK is not on the app module\u2019s classpath, so it does not compile. If ' +
+            'expo prebuild wrote it, re-run prebuild with this version.',
         };
       }
 
-      const a = project.android;
-      if (a.appBuildGradleKts && !a.appBuildGradle) {
+      const plugin = mamPluginApplied(project);
+      if (plugin.state === 'unknown') {
         return {
           state: 'unknown',
-          detail:
-            'app/build.gradle.kts — the Kotlin DSL is not inspected, so whether the ' +
-            'plugin will transform the class cannot be read here. Check by hand.',
+          detail: `whether the plugin transforms the class cannot be read: ${plugin.detail}`,
         };
       }
-      const gradle = read(a.appBuildGradle);
-      if (gradle && /com\.microsoft\.intune\.mam/.test(gradle)) {
+      if (plugin.state === 'ok') {
         return {
           state: 'ok',
           detail: `${rel(project, sources[0])} — superclass rewritten by the Gradle plugin`,
@@ -263,7 +312,9 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
       if (sources.length === 0) {
         return { state: 'missing', detail: 'no Application subclass found' };
       }
-      return sources.some((f) => /RNIntuneAuthCallback\s*\.\s*register/.test(read(f)))
+      return sources.some((f) =>
+        /RNIntuneAuthCallback\s*\.\s*register/.test(stripComments(read(f)))
+      )
         ? { state: 'ok' }
         : { state: 'missing' };
     },
