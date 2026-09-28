@@ -33,6 +33,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KEEP = process.argv.includes('--keep');
 
 /**
+ * Pinned, and bumped deliberately. With `@latest` the Expo SDK and the generated
+ * MainApplication template change underneath the script, so a run would start failing
+ * — or passing — for reasons unrelated to the change under test, and "verified" would
+ * stop meaning a particular thing.
+ */
+const EXPO_SDK = 57;
+const CREATE_EXPO_APP = '5.0.0';
+
+/**
  * The hash of the debug keystore React Native's template ships. It is only read at
  * sign-in, never during a build, so it is here to exercise the manifest write rather
  * than to be correct for any particular app.
@@ -44,9 +53,42 @@ const say = (message) => {
   step += 1;
   process.stdout.write(`\n\x1b[1m${step}. ${message}\x1b[0m\n`);
 };
+/**
+ * Thrown rather than exiting. `process.exit` does not run pending `finally` blocks, so
+ * an exit from inside the build would skip the cleanup — leaking the project on every
+ * failure and, with `--keep`, never printing the path it was kept for.
+ */
+class Failure extends Error {}
 const fail = (message) => {
-  process.stderr.write(`\n\x1b[31m${message}\x1b[0m\n`);
+  throw new Failure(message);
+};
+const printFailure = (error) =>
+  process.stderr.write(
+    `\n\x1b[31m${error instanceof Failure ? error.message : (error.stack ?? error)}\x1b[0m\n`
+  );
+
+// Failures before the project exists have nothing to clean up. Everything after it is
+// caught below, where the cleanup can run first.
+process.on('uncaughtException', (error) => {
+  printFailure(error);
   process.exit(1);
+});
+
+/** Every file under `dir` whose name satisfies `test`. */
+const findFiles = (dir, test) => {
+  const found = [];
+  const walk = (d) => {
+    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+      const full = path.join(d, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (test(entry.name)) {
+        found.push(full);
+      }
+    }
+  };
+  walk(dir);
+  return found;
 };
 
 const run = (command, args, options = {}) =>
@@ -69,7 +111,9 @@ if (!androidHome || !fs.existsSync(androidHome)) {
 try {
   capture('java', ['-version'], { stdio: 'pipe' });
 } catch {
-  fail('java not found. The MAM SDK requires JDK 17 — see the setup documentation.');
+  fail(
+    'java not found. The MAM SDK requires JDK 17 — see the setup documentation.'
+  );
 }
 
 // ---------------------------------------------------------------- pack
@@ -78,7 +122,9 @@ say('Packing the library');
 // `npm pack --json` is not used, and the reason is worth keeping: pack runs `prepare`,
 // `bob build` writes to stdout, and the build output lands in the middle of the JSON.
 // The filename is derivable, so derive it.
-const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const pkg = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+);
 const tarball = path.join(
   os.tmpdir(),
   `${pkg.name.replace('@', '').replace('/', '-')}-${pkg.version}.tgz`
@@ -99,26 +145,42 @@ if (vendored.length > 0) {
       'must never be published.'
   );
 }
-process.stdout.write(`   ${path.basename(tarball)}, ${contents.length} entries\n`);
+process.stdout.write(
+  `   ${path.basename(tarball)}, ${contents.length} entries\n`
+);
 
 // ---------------------------------------------------------------- scaffold
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rni-expo-'));
 const app = path.join(dir, 'app');
 
-const cleanup = () => {
+const cleanup = (failed) => {
   if (KEEP) {
     process.stdout.write(`\nProject kept at ${app}\n`);
     return;
   }
+  if (failed) {
+    process.stdout.write(
+      '\nRe-run with --keep to inspect the generated project.\n'
+    );
+  }
   fs.rmSync(dir, { recursive: true, force: true });
 };
 
+let failed = false;
 try {
-  say('Creating a blank Expo app');
-  run('npx', ['--yes', 'create-expo-app@latest', app, '--template', 'blank'], {
-    cwd: dir,
-  });
+  say(`Creating a blank Expo SDK ${EXPO_SDK} app`);
+  run(
+    'npx',
+    [
+      '--yes',
+      `create-expo-app@${CREATE_EXPO_APP}`,
+      app,
+      '--template',
+      `blank@sdk-${EXPO_SDK}`,
+    ],
+    { cwd: dir }
+  );
 
   say('Installing the packed tarball');
   // postinstall runs fetch-sdks, so the vendored SDK lands under the installed package
@@ -152,23 +214,16 @@ try {
   fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
 
   say('Running expo prebuild');
-  run('npx', ['expo', 'prebuild', '--platform', 'android', '--clean'], { cwd: app });
+  run('npx', ['expo', 'prebuild', '--platform', 'android', '--clean'], {
+    cwd: app,
+  });
 
   // ---------------------------------------------------------------- generated source
 
   say('Checking the generated Application class');
-  const sources = [];
-  const walk = (d) => {
-    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-      } else if (/^MainApplication\.(kt|java)$/.test(entry.name)) {
-        sources.push(full);
-      }
-    }
-  };
-  walk(path.join(app, 'android/app/src/main'));
+  const sources = findFiles(path.join(app, 'android/app/src/main'), (name) =>
+    /^MainApplication\.(kt|java)$/.test(name)
+  );
   if (sources.length !== 1) {
     fail(`Expected exactly one MainApplication, found ${sources.length}`);
   }
@@ -213,34 +268,37 @@ try {
         'run, which means the app built cleanly and is not protected.'
     );
   }
-  const reports = [];
-  const collect = (d) => {
-    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) {
-        collect(full);
-      } else if (entry.name.endsWith('.html') || entry.name.endsWith('.txt')) {
-        reports.push(full);
-      }
-    }
-  };
-  collect(logs);
+  // The class's own per-class report, found by its fully qualified name. Any other
+  // Application subclass the plugin happened to rewrite — in a dependency, say — says
+  // nothing about whether this one was.
+  const packageName = source.match(/^package\s+([\w.]+)/m)?.[1];
+  if (!packageName) {
+    fail(`No package declaration in ${path.relative(app, sources[0])}`);
+  }
+  const reportName = `${packageName}.MainApplication.html`;
+  const [report] = findFiles(logs, (name) => name === reportName);
+  if (!report) {
+    fail(
+      `The MAM plugin wrote no report for ${packageName}.MainApplication — it did not ` +
+        'transform the class. The build succeeded, so this is the silent failure: ' +
+        'linked SDK, no enforcement.'
+    );
+  }
+  const text = fs.readFileSync(report, 'utf8').replace(/<[^>]+>/g, ' ');
+
   // The plugin's own sentence, not a co-occurrence of two class names in one file. A
   // loose match here would pass for the same reason the old doctor check passed.
   const changed =
     /Base class\s+android\.app\.Application\s+changed to\s+com\.microsoft\.intune\.mam\.client\.app\.MAMApplication/;
-  const report = reports.find((f) =>
-    changed.test(fs.readFileSync(f, 'utf8').replace(/<[^>]+>/g, ' '))
-  );
-  if (!report) {
+  if (!changed.test(text)) {
     fail(
-      'No report records the Application base class being changed to MAMApplication. ' +
-        'The build succeeded, so this is the silent failure: linked SDK, no enforcement.'
+      `${path.relative(app, report)} does not record the base class being changed ` +
+        'to MAMApplication. The build succeeded, so the app is not protected.'
     );
   }
   // The callback is written into `onCreate` precisely because the plugin renames it.
   // If that rename stops happening, the callback is in a method nothing calls.
-  if (!/onMAMCreate/.test(fs.readFileSync(report, 'utf8'))) {
+  if (!/onMAMCreate/.test(text)) {
     fail(
       `${path.relative(app, report)} shows no onMAMCreate. The callback is registered ` +
         'in onCreate on the assumption that the plugin renames it — it did not.'
@@ -252,6 +310,12 @@ try {
     '\n\x1b[32mOK\x1b[0m — prebuild, compile, and the superclass rewrite all verified.\n' +
       'Not covered: enrollment. That needs a tenant and a device.\n'
   );
+} catch (error) {
+  printFailure(error);
+  failed = true;
 } finally {
-  cleanup();
+  cleanup(failed);
+}
+if (failed) {
+  process.exitCode = 1;
 }
