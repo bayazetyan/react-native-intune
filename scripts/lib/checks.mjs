@@ -174,8 +174,18 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
   {
     id: 'android-mam-application',
     platform: 'android',
-    title: 'Application class derives from MAMApplication',
+    title: 'Application class is transformed into a MAMApplication',
     severity: 'silent',
+    /**
+     * What makes the app a MAMApplication is the Gradle plugin's bytecode rewrite, not
+     * the text of the source file — so this reads both, and a plain `Application`
+     * subclass with the plugin applied is the correct, expected shape.
+     *
+     * The previous version matched the substring `MAMApplication` anywhere in the
+     * source. It reported this repository's own example as passing because the word
+     * appears in a *comment* there, which is why nobody noticed it was asserting the
+     * wrong thing entirely. Issue #5.
+     */
     inspect(project) {
       const sources = project.android.applicationSources;
       if (sources.length === 0) {
@@ -184,26 +194,57 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
           detail: 'no Application subclass found in android/app/src/main',
         };
       }
-      const hit = sources.find((f) => /MAMApplication/.test(read(f)));
-      if (hit) {
-        return { state: 'ok', detail: rel(project, hit) };
+
+      // A class declaration, never a mention. `MAMApplication` in a comment says
+      // nothing about what the app extends.
+      const declared =
+        /class\s+\w+\s*(?::\s*|\s+extends\s+)MAMApplication\b/;
+      const explicit = sources.find((f) => declared.test(read(f)));
+      if (explicit) {
+        return {
+          state: 'ok',
+          detail: `${rel(project, explicit)} extends MAMApplication directly`,
+        };
+      }
+
+      const a = project.android;
+      if (a.appBuildGradleKts && !a.appBuildGradle) {
+        return {
+          state: 'unknown',
+          detail:
+            'app/build.gradle.kts — the Kotlin DSL is not inspected, so whether the ' +
+            'plugin will transform the class cannot be read here. Check by hand.',
+        };
+      }
+      const gradle = read(a.appBuildGradle);
+      if (gradle && /com\.microsoft\.intune\.mam/.test(gradle)) {
+        return {
+          state: 'ok',
+          detail: `${rel(project, sources[0])} — superclass rewritten by the Gradle plugin`,
+        };
       }
       return {
         state: 'wrong',
-        detail: `found ${sources.map((f) => rel(project, f)).join(', ')} — none extends MAMApplication`,
+        detail:
+          `found ${sources.map((f) => rel(project, f)).join(', ')}, and the MAM ` +
+          'Gradle plugin is not applied to the app module — so nothing rewrites it',
       };
     },
     why:
       'One of the three omissions that build and run while protecting nothing. The ' +
-      'plugin transforms an Application subclass; with none to transform, or one that ' +
-      'does not derive from MAMApplication, the SDK is present and inert.',
+      'Gradle plugin transforms an Application subclass into a MAMApplication; with ' +
+      'none to transform, or with the plugin not applied, the SDK is present and inert.',
     instruction: () =>
-      `Your Application class must extend MAMApplication, and the auth callback is
-  registered from onMAMCreate — the plugin rewrites onCreate into it:
+      `Keep your Application class extending android.app.Application — the MAM Gradle
+  plugin rewrites the superclass at build time, and writing MAMApplication in source
+  does not compile unless you put the SDK on your app module's classpath yourself.
 
-    class MainApplication : MAMApplication(), ReactApplication {
-      override fun onMAMCreate() {
-        super.onMAMCreate()
+  Apply the plugin (see the "MAM Gradle plugin applied to the app module" check), and
+  register the auth callback from onCreate, which the plugin rewrites into onMAMCreate:
+
+    class MainApplication : Application(), ReactApplication {
+      override fun onCreate() {
+        super.onCreate()
         RNIntuneAuthCallback.register(this)
         // ... the rest of your existing onCreate body
       }

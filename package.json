@@ -48,7 +48,7 @@
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "yarn workspace react-native-intune-example ensure-tenant && tsc",
-    "test": "jest",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "release": "release-it --only-version",
     "lint": "eslint \"**/*.{js,ts,tsx}\""
   },
@@ -145,6 +145,11 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/lib/"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.[jt]s?(x)",
+      "**/?(*.)+(spec|test).[jt]s?(x)",
+      "**/__tests__/**/*.test.mjs"
     ]
   },
   "commitlint": {

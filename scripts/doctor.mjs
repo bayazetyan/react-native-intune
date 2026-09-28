@@ -128,7 +128,9 @@ function main() {
     }
     process.stdout.write(`\n${platform === 'ios' ? 'iOS' : 'Android'}\n`);
     for (const r of forPlatform) {
-      process.stdout.write(`  ${glyph(r.state)} ${r.check.title}${suffix(r)}\n`);
+      process.stdout.write(
+        `  ${glyph(r.state, r.check.severity)} ${r.check.title}${suffix(r)}\n`
+      );
     }
   }
 
@@ -183,7 +185,15 @@ function main() {
   process.exit(s.blocking.length > 0 ? 1 : 0);
 }
 
-function glyph(state) {
+/**
+ * An advisory never reads as MISS or WRONG. It does not fail the exit code by design,
+ * and a line that shouts while the detail underneath says "advisory" teaches people to
+ * discount the ones that do matter.
+ */
+function glyph(state, severity) {
+  if (severity === 'advisory' && state !== 'ok' && state !== 'skip') {
+    return 'note';
+  }
   return { ok: 'ok  ', missing: 'MISS', wrong: 'WRONG', unknown: '?   ', skip: '--  ' }[
     state
   ];
