@@ -22,6 +22,7 @@
     "app.plugin.js",
     "plugin",
     "scripts",
+    "!scripts/verify-expo.mjs",
     "sdk-versions.json",
     "sdk-lock.json",
     "!vendor",
@@ -43,6 +44,7 @@
   ],
   "scripts": {
     "fetch-sdks": "node scripts/fetch-sdks.mjs",
+    "verify:expo": "node scripts/verify-expo.mjs",
     "postinstall": "node scripts/fetch-sdks.mjs --soft --quiet",
     "example": "yarn workspace react-native-intune-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
