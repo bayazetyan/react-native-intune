@@ -13,11 +13,12 @@ npx react-native-intune doctor   # reports what is missing, changes nothing
 npx react-native-intune setup    # applies what can be applied, shows a diff first
 ```
 
-`setup` handles the parts that are identical in every project: the Gradle plugin, broker `<queries>`, keychain groups, Xcode build settings, the configurator build phase. It **cannot** do three things, because they depend on your project or your signing key, and it will tell you so and exit non-zero:
+`setup` handles the parts that are identical in every project: the Gradle plugin, broker `<queries>`, keychain groups, Xcode build settings, the configurator build phase. It **cannot** do two things, because they depend on your project or your signing key, and it will tell you so and exit non-zero:
 
-- changing your `Application` class's superclass to `MAMApplication`
 - the `BrowserTabActivity` redirect, which needs your keystore's signature hash
-- registering the auth callback inside your `onMAMCreate`
+- registering the auth callback in your `Application` class's `onCreate`
+
+Your `Application` class keeps extending `android.app.Application`: the Gradle plugin rewrites its superclass at build time, so there is nothing to change there by hand.
 
 `setup` never runs on install, is idempotent, and refuses to touch a dirty git tree without `--force`. The full manual reference is below — read it even if you use `setup`, because three of these steps fail *silently* when missed.
 

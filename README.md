@@ -90,7 +90,7 @@ app project** — `Info.plist`, entitlements, `AndroidManifest.xml`, your app mo
 `build.gradle`, your `Application` class — and autolinking does not touch any of them.
 
 **Expo:** add the config plugin and run `expo prebuild`. Nearly everything is applied for
-you, including the `MAMApplication` change.
+you, including the auth callback in your `Application` class.
 
 ```json
 { "expo": { "plugins": [["react-native-intune", { "androidSignatureHash": "…" }]] } }

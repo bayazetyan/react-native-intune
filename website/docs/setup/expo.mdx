@@ -132,7 +132,7 @@ there would be nowhere to fix it.
 | `AndroidManifest.xml` | Broker `<queries>`, and the MSAL `BrowserTabActivity` |
 | `android/app/build.gradle` | The MAM Gradle plugin, applied to your app module |
 | `android/build.gradle` | The plugin jar and javassist on the buildscript classpath |
-| `MainApplication.kt` / `.java` | Superclass changed to `MAMApplication`, and the auth callback registered |
+| `MainApplication.kt` / `.java` | The auth callback registered in `onCreate`. The superclass stays `Application` — the Gradle plugin rewrites it at build time |
 
 ## Why this is automatic here and manual everywhere else
 
@@ -144,8 +144,8 @@ A config plugin has neither problem. It runs during `expo prebuild`, against the
 and `ios/` directories prebuild has just **generated**. There is nothing of yours to
 overwrite and nothing to re-apply later.
 
-That difference is why Expo users get the `MAMApplication` change automatically, while in a
-bare project [`doctor`](../doctor.mdx) can only tell you to make it yourself.
+That difference is why Expo users get the `Application` class wired automatically, while
+in a bare project [`doctor`](../doctor.mdx) can only tell you to make the change yourself.
 
 ## What the plugin cannot do
 
