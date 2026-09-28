@@ -7,6 +7,16 @@ sidebar_position: 3
 Expo users get almost the whole integration applied for them. Add the config plugin, run
 `expo prebuild`, and read the warnings it prints.
 
+:::info[How far this path has been verified]
+The bare React Native path is the one this library was built and run on, against a real
+tenant on physical devices. The Expo plugin is covered by unit tests over its file
+transforms and by a run against Expo's own `compileModsAsync` — neither of which compiles
+what it generates, which is how
+[#5](https://github.com/bayazetyan/react-native-intune/issues/5) shipped. Treat a real
+`expo prebuild` followed by a Gradle build as the check that matters, and if you hit
+something, an issue with the prebuild output attached is genuinely useful.
+:::
+
 ```json title="app.json"
 {
   "expo": {
