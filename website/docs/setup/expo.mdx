@@ -123,6 +123,24 @@ an Expo app could not use a custom group at all: it would fail with `E_PLIST_CON
 there would be nowhere to fix it.
 :::
 
+## iOS deployment target — set it yourself
+
+MAM SDK 21.x is built for iOS 17.0 (`minos 17.0`, read from the binary), and a new Expo
+project targets lower. Until it is raised, `pod install` refuses the pod. This plugin does
+not set it for you, because the value belongs to your whole app rather than to this
+library; set it with `expo-build-properties`:
+
+```json title="app.json"
+{
+  "expo": {
+    "plugins": [
+      ["expo-build-properties", { "ios": { "deploymentTarget": "17.0" } }],
+      ["react-native-intune", { "androidSignatureHash": "Xo8W…yr9iU=" }]
+    ]
+  }
+}
+```
+
 ## What the plugin does
 
 | File | Change |
