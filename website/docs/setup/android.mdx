@@ -11,6 +11,16 @@ The MAM Gradle plugin belongs in **your app module**, never in this library. App
 :::
 
 
+**Before you start: `minSdk` 24.** MSAL requires it. React Native 0.74's template ships 23, and the build then fails at manifest merging, naming MSAL; newer templates already have 24. In `android/build.gradle`:
+
+```groovy
+buildscript {
+  ext {
+    minSdkVersion = 24
+  }
+}
+```
+
 1. **Apply the MAM Gradle plugin to your app module** — not to this library.
 
    ```groovy

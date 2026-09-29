@@ -115,6 +115,13 @@ await verify('rni-bare-', async (dir) => {
 
   if (android) {
     say('Applying the Android steps setup leaves to the developer');
+    // The page's precondition. Older templates ship 23 and MSAL requires 24; a newer
+    // template already has it, and this leaves it alone.
+    edit(path.join(app, 'android/build.gradle'), (s) =>
+      s.replace(/(minSdkVersion\s*=\s*)(\d+)/, (m, key, v) =>
+        Number(v) < 24 ? `${key}24` : m
+      )
+    );
     const appGradle = path.join(app, 'android/app/build.gradle');
     edit(appGradle, transforms.withMamPluginApplied);
     edit(path.join(app, 'android/build.gradle'), transforms.withMamClasspath);
