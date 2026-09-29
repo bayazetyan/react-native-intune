@@ -24,6 +24,7 @@
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import { read, rel } from './project.mjs';
 
 const MARKER = 'react-native-intune: managed block';
@@ -462,7 +463,108 @@ pinning an older MAM SDK whose row you do match — see sdk-versions.json.`,
 
 // ---------------------------------------------------------------- ios
 
+/**
+ * The lowest iOS the vendored MAM SDK runs on. Read from the binary (`otool -l` on
+ * IntuneMAMSwift.framework in the 21.8.0 drop reports `minos 17.0`), not from
+ * Microsoft's release notes — the SDK should move this, not a guess.
+ */
+const MIN_IOS = [17, 0];
+
+const versionAtLeast = (value, [major, minor]) => {
+  const [a = 0, b = 0] = String(value).split('.').map(Number);
+  return a > major || (a === major && b >= minor);
+};
+
+/** Ruby comments — whole-line or trailing — so a commented-out platform line is ignored. */
+const stripRubyComments = (src) => src.replace(/(^|\s)#.*$/gm, '$1');
+
 const iosChecks = [
+  {
+    id: 'ios-deployment-target',
+    platform: 'ios',
+    title: `Deployment target is iOS ${MIN_IOS.join('.')} or later`,
+    severity: 'loud',
+    /**
+     * React Native's template targets `min_ios_version_supported` — 15.1 — and the SDK
+     * is built for 17.0, so a new project fails at `pod install` before anything else
+     * here can be tried. The Podfile and the Xcode target are read separately because
+     * they disagree independently: a raised Podfile with a 15.1 app target installs the
+     * pod and builds, then crashes at launch on any iOS 16 device it was allowed onto.
+     */
+    inspect(project) {
+      const podfile = stripRubyComments(read(project.ios.podfile));
+      if (!podfile) {
+        return { state: 'unknown', detail: 'ios/Podfile not found' };
+      }
+      const line = podfile.match(/^\s*platform\s+:ios\s*,\s*(.+)$/m)?.[1]?.trim();
+      if (!line) {
+        return { state: 'unknown', detail: 'no `platform :ios` line in the Podfile' };
+      }
+
+      let target = line.match(/^['"]([\d.]+)['"]$/)?.[1];
+      let source = 'Podfile';
+      if (!target && /ios\.deploymentTarget/.test(line)) {
+        // Expo's generated Podfile reads Podfile.properties.json first, which is what
+        // expo-build-properties writes, and falls back to the template minimum.
+        const props = path.join(path.dirname(project.ios.podfile), 'Podfile.properties.json');
+        try {
+          target = JSON.parse(read(props) || '{}')['ios.deploymentTarget'];
+          source = 'Podfile.properties.json';
+        } catch {
+          return { state: 'unknown', detail: 'Podfile.properties.json is not valid JSON' };
+        }
+        if (!target) {
+          return {
+            state: 'wrong',
+            detail:
+              'ios.deploymentTarget is not set, so the Podfile falls back to ' +
+              'min_ios_version_supported',
+          };
+        }
+      }
+      if (!target) {
+        return /min_ios_version_supported/.test(line)
+          ? {
+              state: 'wrong',
+              detail: 'the Podfile uses min_ios_version_supported, which is below 17.0',
+            }
+          : { state: 'unknown', detail: `cannot read a version from: ${line}` };
+      }
+      if (!versionAtLeast(target, MIN_IOS)) {
+        return { state: 'wrong', detail: `${source} targets ${target}` };
+      }
+
+      const pbxproj = read(project.ios.pbxproj);
+      const low = [
+        ...new Set(
+          [...pbxproj.matchAll(/IPHONEOS_DEPLOYMENT_TARGET\s*=\s*"?([\d.]+)"?;/g)]
+            .map((m) => m[1])
+            .filter((v) => !versionAtLeast(v, MIN_IOS))
+        ),
+      ];
+      if (low.length > 0) {
+        return {
+          state: 'wrong',
+          detail: `${source} targets ${target}, but the Xcode project still has ${low.join(', ')}`,
+        };
+      }
+      return { state: 'ok', detail: `${source}: ${target}` };
+    },
+    why:
+      'MAM SDK 21.x is built for iOS 17.0. Below it CocoaPods refuses the pod; with only ' +
+      'the Podfile raised, the app builds and then crashes at launch on older devices it ' +
+      'still claims to support.',
+    instruction: () =>
+      `In ios/Podfile:
+
+    platform :ios, '17.0'
+
+  and set Minimum Deployments to 17.0 on your app target in Xcode
+  (IPHONEOS_DEPLOYMENT_TARGET), then run pod install again.
+
+  Expo: set it with expo-build-properties — { "ios": { "deploymentTarget": "17.0" } }.`,
+  },
+
   {
     id: 'ios-keychain-groups',
     platform: 'ios',

@@ -49,8 +49,18 @@ const project = (files) => {
       : write('MainApplication.kt', files.source);
   const gradle =
     files.gradle === undefined ? null : write('build.gradle', files.gradle);
+  const podfile =
+    files.podfile === undefined ? null : write('ios/Podfile', files.podfile);
+  if (files.podProps !== undefined) {
+    write('ios/Podfile.properties.json', files.podProps);
+  }
+  const pbxproj =
+    files.pbxproj === undefined
+      ? null
+      : write('ios/App.xcodeproj/project.pbxproj', files.pbxproj);
   return {
     root,
+    ios: { podfile, pbxproj },
     android: {
       applicationSources: source ? [source] : [],
       appBuildGradle: gradle,
@@ -196,5 +206,61 @@ describe('android-auth-callback', () => {
     expect(
       inspect('android-auth-callback', { source: KOTLIN_PLAIN }).state
     ).toBe('ok');
+  });
+});
+
+describe('ios-deployment-target', () => {
+  const target = (files) => inspect('ios-deployment-target', files);
+  const PBX = (v) =>
+    `IPHONEOS_DEPLOYMENT_TARGET = ${v};\nIPHONEOS_DEPLOYMENT_TARGET = ${v};\n`;
+
+  it('passes 17.0 in both the Podfile and the Xcode project', () => {
+    expect(
+      target({ podfile: "platform :ios, '17.0'\n", pbxproj: PBX('17.0') }).state
+    ).toBe('ok');
+  });
+
+  /** React Native's own template. It fails at pod install, before anything else. */
+  it('fails the template minimum', () => {
+    const result = target({
+      podfile: 'platform :ios, min_ios_version_supported\n',
+      pbxproj: PBX('15.1'),
+    });
+    expect(result.state).toBe('wrong');
+    expect(result.detail).toContain('min_ios_version_supported');
+  });
+
+  /**
+   * The one that gets through: pod install succeeds and the app builds, then crashes at
+   * launch on an iOS 16 device the app target still claims to support.
+   */
+  it('fails a raised Podfile with the Xcode target left behind', () => {
+    const result = target({
+      podfile: "platform :ios, '17.0'\n",
+      pbxproj: PBX('15.1'),
+    });
+    expect(result.state).toBe('wrong');
+    expect(result.detail).toContain('15.1');
+  });
+
+  it('reads the Expo form from Podfile.properties.json', () => {
+    const podfile =
+      "platform :ios, podfile_properties['ios.deploymentTarget'] || min_ios_version_supported\n";
+    expect(
+      target({
+        podfile,
+        podProps: '{"ios.deploymentTarget":"17.0"}',
+        pbxproj: PBX('17.0'),
+      }).state
+    ).toBe('ok');
+    expect(
+      target({ podfile, podProps: '{}', pbxproj: PBX('17.0') }).state
+    ).toBe('wrong');
+  });
+
+  it('ignores a commented-out platform line', () => {
+    const podfile =
+      "# platform :ios, '17.0'\nplatform :ios, min_ios_version_supported\n";
+    expect(target({ podfile, pbxproj: PBX('17.0') }).state).toBe('wrong');
   });
 });
