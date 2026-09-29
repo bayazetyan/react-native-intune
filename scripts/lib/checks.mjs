@@ -49,30 +49,58 @@ export const KEYCHAIN_GROUPS = [
 
 // ---------------------------------------------------------------- android
 
+/**
+ * Source text with `//` and block comments removed, for Gradle, Kotlin and Java alike.
+ *
+ * Every check that reads source for a declaration goes through this, because matching
+ * text that includes comments is how `android-mam-application` reported this
+ * repository's own example as passing for as long as it existed (issue #5). A `//` is
+ * only a comment after whitespace or at the start of a line, so `https://` in a
+ * repository URL survives.
+ */
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
+}
+
+/**
+ * An actual application of the plugin: `apply plugin: "…"`, `id "…"` or `id("…")`. The
+ * closing quote is required, so the `com.microsoft.intune.mam.build` classpath entry in
+ * the root build file does not count.
+ */
+const MAM_PLUGIN_APPLIED =
+  /(?:apply\s+plugin\s*:\s*|\bid\s*\(?\s*)['"]com\.microsoft\.intune\.mam['"]/;
+
+/**
+ * Whether the MAM Gradle plugin is applied to the app module. Shared by the plugin check
+ * and the Application check, which both depend on the answer and must never disagree
+ * about it.
+ */
+function mamPluginApplied(project) {
+  const a = project.android;
+  if (a.appBuildGradleKts && !a.appBuildGradle) {
+    return {
+      state: 'unknown',
+      detail:
+        'app/build.gradle.kts — the Kotlin DSL is not inspected. Check by hand that ' +
+        'the plugin is applied.',
+    };
+  }
+  const src = read(a.appBuildGradle);
+  if (!src) {
+    return { state: 'unknown', detail: 'android/app/build.gradle not found' };
+  }
+  return MAM_PLUGIN_APPLIED.test(stripComments(src))
+    ? { state: 'ok' }
+    : { state: 'missing' };
+}
+
 const androidChecks = [
   {
     id: 'android-mam-plugin',
     platform: 'android',
     title: 'MAM Gradle plugin applied to the app module',
     severity: 'silent',
-    inspect(project) {
-      const a = project.android;
-      if (a.appBuildGradleKts && !a.appBuildGradle) {
-        return {
-          state: 'unknown',
-          detail:
-            'app/build.gradle.kts — the Kotlin DSL is not inspected. Check by hand ' +
-            'that the plugin is applied.',
-        };
-      }
-      const src = read(a.appBuildGradle);
-      if (!src) {
-        return { state: 'unknown', detail: 'android/app/build.gradle not found' };
-      }
-      return /com\.microsoft\.intune\.mam/.test(src)
-        ? { state: 'ok' }
-        : { state: 'missing' };
-    },
+    inspect: mamPluginApplied,
     why:
       'The plugin rewrites bytecode across the app and every dependency. Applied to ' +
       'the library instead of the app module it rewrites only the library, builds ' +
@@ -174,8 +202,18 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
   {
     id: 'android-mam-application',
     platform: 'android',
-    title: 'Application class derives from MAMApplication',
+    title: 'Application class is transformed into a MAMApplication',
     severity: 'silent',
+    /**
+     * What makes the app a MAMApplication is the Gradle plugin's bytecode rewrite, not
+     * the text of the source file — so this reads both, and a plain `Application`
+     * subclass with the plugin applied is the correct, expected shape.
+     *
+     * The previous version matched the substring `MAMApplication` anywhere in the
+     * source. It reported this repository's own example as passing because the word
+     * appears in a *comment* there, which is why nobody noticed it was asserting the
+     * wrong thing entirely. Issue #5.
+     */
     inspect(project) {
       const sources = project.android.applicationSources;
       if (sources.length === 0) {
@@ -184,26 +222,78 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
           detail: 'no Application subclass found in android/app/src/main',
         };
       }
-      const hit = sources.find((f) => /MAMApplication/.test(read(f)));
-      if (hit) {
-        return { state: 'ok', detail: rel(project, hit) };
+
+      // A class declaration, never a mention: comments are stripped first, so neither
+      // an explanatory comment nor a commented-out example counts.
+      const declared = /class\s+\w+\s*(?::\s*|\s+extends\s+)MAMApplication\b/;
+      const explicit = sources.find((f) => declared.test(stripComments(read(f))));
+      const a = project.android;
+
+      if (explicit) {
+        // Legitimate only when the app module has the SDK on its own compile classpath.
+        // This package declares the AAR as `implementation`, which is not transitive,
+        // so without that the supertype does not resolve — exactly the shape a 0.1.0
+        // Expo prebuild wrote, which must not read as protected (issue #5).
+        if (a.appBuildGradleKts && !a.appBuildGradle) {
+          return {
+            state: 'unknown',
+            detail:
+              `${rel(project, explicit)} extends MAMApplication directly, and the ` +
+              'Kotlin DSL build file is not inspected — check by hand that the MAM SDK ' +
+              'is on the app module\u2019s classpath, or this does not compile.',
+          };
+        }
+        const gradle = stripComments(read(a.appBuildGradle));
+        if (/Microsoft\.Intune\.MAM\.SDK/.test(gradle)) {
+          return {
+            state: 'ok',
+            detail: `${rel(project, explicit)} extends MAMApplication directly`,
+          };
+        }
+        return {
+          state: 'wrong',
+          detail:
+            `${rel(project, explicit)} extends MAMApplication in source, but the MAM ` +
+            'SDK is not on the app module\u2019s classpath, so it does not compile. If ' +
+            'expo prebuild wrote it, re-run prebuild with this version.',
+        };
+      }
+
+      const plugin = mamPluginApplied(project);
+      if (plugin.state === 'unknown') {
+        return {
+          state: 'unknown',
+          detail: `whether the plugin transforms the class cannot be read: ${plugin.detail}`,
+        };
+      }
+      if (plugin.state === 'ok') {
+        return {
+          state: 'ok',
+          detail: `${rel(project, sources[0])} — superclass rewritten by the Gradle plugin`,
+        };
       }
       return {
         state: 'wrong',
-        detail: `found ${sources.map((f) => rel(project, f)).join(', ')} — none extends MAMApplication`,
+        detail:
+          `found ${sources.map((f) => rel(project, f)).join(', ')}, and the MAM ` +
+          'Gradle plugin is not applied to the app module — so nothing rewrites it',
       };
     },
     why:
       'One of the three omissions that build and run while protecting nothing. The ' +
-      'plugin transforms an Application subclass; with none to transform, or one that ' +
-      'does not derive from MAMApplication, the SDK is present and inert.',
+      'Gradle plugin transforms an Application subclass into a MAMApplication; with ' +
+      'none to transform, or with the plugin not applied, the SDK is present and inert.',
     instruction: () =>
-      `Your Application class must extend MAMApplication, and the auth callback is
-  registered from onMAMCreate — the plugin rewrites onCreate into it:
+      `Keep your Application class extending android.app.Application — the MAM Gradle
+  plugin rewrites the superclass at build time, and writing MAMApplication in source
+  does not compile unless you put the SDK on your app module's classpath yourself.
 
-    class MainApplication : MAMApplication(), ReactApplication {
-      override fun onMAMCreate() {
-        super.onMAMCreate()
+  Apply the plugin (see the "MAM Gradle plugin applied to the app module" check), and
+  register the auth callback from onCreate, which the plugin rewrites into onMAMCreate:
+
+    class MainApplication : Application(), ReactApplication {
+      override fun onCreate() {
+        super.onCreate()
         RNIntuneAuthCallback.register(this)
         // ... the rest of your existing onCreate body
       }
@@ -222,7 +312,9 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
       if (sources.length === 0) {
         return { state: 'missing', detail: 'no Application subclass found' };
       }
-      return sources.some((f) => /RNIntuneAuthCallback\s*\.\s*register/.test(read(f)))
+      return sources.some((f) =>
+        /RNIntuneAuthCallback\s*\.\s*register/.test(stripComments(read(f)))
+      )
         ? { state: 'ok' }
         : { state: 'missing' };
     },

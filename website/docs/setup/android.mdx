@@ -43,16 +43,21 @@ The MAM Gradle plugin belongs in **your app module**, never in this library. App
    <application android:name="com.microsoft.intune.mam.client.app.MAMApplication" ... >
    ```
 
-3. **Register the auth callback from your Application class.** This must happen in `onMAMCreate`, before JavaScript exists — so it cannot be done from `configure()`:
+3. **Register the auth callback from your Application class.** It has to happen before JavaScript exists — so it cannot be done from `configure()`. Register it in `onCreate`, after `super.onCreate()`; the plugin renames that method to `onMAMCreate` at build time, which is where the SDK needs it:
 
    ```kotlin
-   class MainApplication : MAMApplication(), ReactApplication {
-     override fun onMAMCreate() {
-       super.onMAMCreate()
-       RNIntune.registerAuthCallback(this)
+   import com.reactnativeintune.RNIntuneAuthCallback
+
+   class MainApplication : Application(), ReactApplication {
+     override fun onCreate() {
+       super.onCreate()
+       RNIntuneAuthCallback.register(this)
+       // ... the rest of your existing onCreate body
      }
    }
    ```
+
+   Keep the class extending `Application`. Writing `MAMApplication` here does not compile — the SDK is not on your app module's compile classpath, and the plugin already does the rewrite. See [Traps](../notes/traps.mdx).
 
 4. **Broker queries and redirect activity.** Without the `<queries>` block, Android 11+ prevents your app from even detecting the broker, and MSAL silently falls back to a browser instead — brokered auth then "just doesn't work" with no error:
 

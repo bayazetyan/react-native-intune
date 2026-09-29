@@ -1,6 +1,6 @@
 {
   "name": "react-native-intune",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Microsoft Intune app protection policies (MAM) for React Native",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -22,6 +22,7 @@
     "app.plugin.js",
     "plugin",
     "scripts",
+    "!scripts/verify-expo.mjs",
     "sdk-versions.json",
     "sdk-lock.json",
     "!vendor",
@@ -43,12 +44,13 @@
   ],
   "scripts": {
     "fetch-sdks": "node scripts/fetch-sdks.mjs",
+    "verify:expo": "node scripts/verify-expo.mjs",
     "postinstall": "node scripts/fetch-sdks.mjs --soft --quiet",
     "example": "yarn workspace react-native-intune-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "yarn workspace react-native-intune-example ensure-tenant && tsc",
-    "test": "jest",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "release": "release-it --only-version",
     "lint": "eslint \"**/*.{js,ts,tsx}\""
   },
@@ -145,6 +147,11 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/lib/"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.[jt]s?(x)",
+      "**/?(*.)+(spec|test).[jt]s?(x)",
+      "**/__tests__/**/*.test.mjs"
     ]
   },
   "commitlint": {

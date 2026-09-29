@@ -27,10 +27,15 @@ own bytecode. The build is clean, the app runs, and no policy is enforced. Since
 libraries cannot be processed selectively, so there is no partial success to notice.
 :::
 
-:::danger[An Application class that does not extend MAMApplication]
-No error and no warning. The SDK is linked and simply never gets the chance to enforce
-anything. If you have no `Application` subclass at all, set `android:name` in the manifest
-instead — `doctor` says which case you are in.
+:::danger[An Application class the Gradle plugin never transforms]
+The class has to become a `MAMApplication`, and what makes it one is the plugin's bytecode
+rewrite — not the text of your source file. With the plugin missing from your app module,
+or with no `Application` subclass for it to transform, there is no error and no warning:
+the SDK is linked and simply never gets the chance to enforce anything.
+
+Leave your class extending `android.app.Application`. If you have no `Application`
+subclass at all, set `android:name` in the manifest instead — `doctor` says which case you
+are in.
 :::
 
 :::danger[An empty UISceneConfigurations in a SwiftUI app]
@@ -84,6 +89,19 @@ The redirect URI registered in Entra percent-encodes `/` and `=`; the manifest's
 `android:path` uses the decoded form. Same value, two spellings, in two places that must
 agree. An EAS build is signed with a keystore Expo manages, so the hash comes from
 `eas credentials` — it cannot be derived.
+:::
+
+:::warning[Writing `MAMApplication` in your own source does not compile]
+It looks like the obvious way to satisfy the rule above, and it fails at
+`compileDebugKotlin` with `'onCreate' overrides nothing` and a handful of unresolved
+references — none of which mention the SDK. The cause is that this package declares the
+MAM AAR as `implementation`, which is not transitive, so `MAMApplication` is not on your
+app module's compile classpath at all.
+
+There is nothing to fix in your code: the Gradle plugin does the rewrite. This library's
+own Expo plugin got it wrong until
+[#5](https://github.com/bayazetyan/react-native-intune/issues/5), which is how the shape
+of the failure is known.
 :::
 
 :::warning[`reset()` leaves the module unconfigured]

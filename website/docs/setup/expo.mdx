@@ -7,6 +7,20 @@ sidebar_position: 3
 Expo users get almost the whole integration applied for them. Add the config plugin, run
 `expo prebuild`, and read the warnings it prints.
 
+:::info[How far this path has been verified]
+The bare React Native path is the one this library was built and run on, against a real
+tenant on physical devices. The Expo plugin was covered only by unit tests over its file
+transforms and by a run against Expo's own `compileModsAsync` — neither of which compiles
+what it generates, which is how
+[#5](https://github.com/bayazetyan/react-native-intune/issues/5) shipped. Since then
+every change runs `yarn verify:expo`, which prebuilds a real project from the published
+tarball, builds it, and reads the MAM plugin's report to confirm the class was actually
+rewritten.
+
+What that still does not cover is enrollment from an EAS build on a device. If you hit
+something, an issue with the prebuild output attached is genuinely useful.
+:::
+
 ```json title="app.json"
 {
   "expo": {
@@ -118,7 +132,7 @@ there would be nowhere to fix it.
 | `AndroidManifest.xml` | Broker `<queries>`, and the MSAL `BrowserTabActivity` |
 | `android/app/build.gradle` | The MAM Gradle plugin, applied to your app module |
 | `android/build.gradle` | The plugin jar and javassist on the buildscript classpath |
-| `MainApplication.kt` / `.java` | Superclass changed to `MAMApplication`, and the auth callback registered |
+| `MainApplication.kt` / `.java` | The auth callback registered in `onCreate`. The superclass stays `Application` — the Gradle plugin rewrites it at build time |
 
 ## Why this is automatic here and manual everywhere else
 
@@ -130,8 +144,8 @@ A config plugin has neither problem. It runs during `expo prebuild`, against the
 and `ios/` directories prebuild has just **generated**. There is nothing of yours to
 overwrite and nothing to re-apply later.
 
-That difference is why Expo users get the `MAMApplication` change automatically, while in a
-bare project [`doctor`](../doctor.mdx) can only tell you to make it yourself.
+That difference is why Expo users get the `Application` class wired automatically, while
+in a bare project [`doctor`](../doctor.mdx) can only tell you to make the change yourself.
 
 ## What the plugin cannot do
 

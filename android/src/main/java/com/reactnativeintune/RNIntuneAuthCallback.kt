@@ -13,19 +13,24 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Supplies the MAM service token (SPEC §13.4, §6.1.2).
  *
- * **The consumer registers this from `Application.onMAMCreate()`,** not from JS. The SDK
+ * **The consumer registers this from `Application.onCreate()`,** not from JS. The SDK
  * can ask for a token before any React context exists — it has its own enrollment retry
  * schedule that survives restarts — so registration has to happen earlier than JS is
  * able to run. The module supplies the class; the wiring is one line in the host app:
  *
  * ```kotlin
- * class MainApplication : MAMApplication() {
- *   override fun onMAMCreate() {
- *     super.onMAMCreate()
+ * class MainApplication : Application(), ReactApplication {
+ *   override fun onCreate() {
+ *     super.onCreate()
  *     RNIntuneAuthCallback.register(this)
  *   }
  * }
  * ```
+ *
+ * `Application`, not `MAMApplication`, and `onCreate`, not `onMAMCreate`: the MAM Gradle
+ * plugin rewrites both at build time. Written in source, `MAMApplication` does not
+ * compile — this module declares the SDK as `implementation`, which is not transitive,
+ * so it is not on the app module's classpath (issue #5).
  *
  * `acquireToken` is called **on a background thread and must return synchronously**, so
  * this blocks that thread while JS answers. That is why the timeout is not optional: the
