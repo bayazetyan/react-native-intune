@@ -16,17 +16,26 @@
  *
  * Not part of `yarn test`. It needs the network, an Android SDK and several minutes:
  *
- *     yarn verify:expo [--keep]
+ *     yarn verify:expo [--keep] [--device]
  *
  * `--keep` leaves the generated project in place and prints its path, which is what you
  * want the moment anything fails.
+ *
+ * `--device` builds something to run against the tenant rather than only to compile:
+ * the example app's own test screen and `tenant.json`, under the example's identifiers
+ * — `intune.example`, which the Entra registration and the protection policies already
+ * name — with iOS raised to 17.0 as the Expo page says. Android comes out as a release
+ * APK with the JavaScript bundled in, so it runs without Metro; iOS is prebuilt and
+ * left for signing, which needs a development team. Implies `--keep`.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 
 import {
+  ROOT,
   assembleDebug,
+  fail,
   checkApplicationSource,
   checkMamReport,
   installTarball,
@@ -56,6 +65,11 @@ const CREATE_EXPO_APP = '5.0.0';
  */
 const SIGNATURE_HASH = 'Xo8WBi6jzSxKDVR4drqm84yr9iU=';
 
+const DEVICE = process.argv.includes('--device');
+if (DEVICE && !process.argv.includes('--keep')) {
+  process.argv.push('--keep');
+}
+
 const androidHome = requireAndroid();
 
 await verify('rni-expo-', async (dir) => {
@@ -75,7 +89,7 @@ await verify('rni-expo-', async (dir) => {
     { cwd: dir }
   );
 
-  const installed = installTarball(app, tarball);
+  const installed = installTarball(app, tarball, { ios: DEVICE });
 
   say('Adding the config plugin');
   const configFile = path.join(app, 'app.json');
@@ -84,12 +98,53 @@ await verify('rni-expo-', async (dir) => {
     ...(config.expo.plugins ?? []),
     ['react-native-intune', { androidSignatureHash: SIGNATURE_HASH }],
   ];
-  fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+
+  if (DEVICE) {
+    // The identifiers the tenant already knows. The Entra registration's redirect URIs
+    // and the protection policies' custom-app entries all name intune.example, so the
+    // app has to be it; any other identifier is an app the tenant has never heard of.
+    // On a phone that already has the bare example installed, this replaces it.
+    config.expo.android = { ...config.expo.android, package: 'intune.example' };
+    config.expo.ios = {
+      ...config.expo.ios,
+      bundleIdentifier: 'intune.example',
+    };
+    config.expo.plugins.unshift([
+      'expo-build-properties',
+      { ios: { deploymentTarget: '17.0' } },
+    ]);
+    fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+    run('npx', ['expo', 'install', 'expo-build-properties'], { cwd: app });
+
+    say('Using the example app\u2019s test screen and tenant');
+    const tenant = path.join(ROOT, 'example/tenant.json');
+    if (!fs.existsSync(tenant)) {
+      fail(
+        'example/tenant.json does not exist. It names the tenant to test against — see ' +
+          'the test-tenant page, and `yarn workspace react-native-intune-example ensure-tenant`.'
+      );
+    }
+    // The screen imports '../tenant.json', so it goes one directory down.
+    fs.mkdirSync(path.join(app, 'src'));
+    fs.copyFileSync(
+      path.join(ROOT, 'example/src/App.tsx'),
+      path.join(app, 'src/App.tsx')
+    );
+    fs.copyFileSync(tenant, path.join(app, 'tenant.json'));
+    fs.writeFileSync(
+      path.join(app, 'App.js'),
+      "export { default } from './src/App';\n"
+    );
+  } else {
+    fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+  }
 
   say('Running expo prebuild');
-  run('npx', ['expo', 'prebuild', '--platform', 'android', '--clean'], {
-    cwd: app,
-  });
+  run(
+    'npx',
+    ['expo', 'prebuild', '--platform', DEVICE ? 'all' : 'android', '--clean'],
+    { cwd: app }
+  );
 
   const packageName = checkApplicationSource(app);
 
@@ -109,6 +164,29 @@ await verify('rni-expo-', async (dir) => {
 
   assembleDebug(app, androidHome);
   checkMamReport(app, packageName);
+
+  if (DEVICE) {
+    say('Building a release APK with the JavaScript bundled in');
+    // Signed with the debug key — the template's release config does — which is the key
+    // whose hash the registration carries. Bundled, so it runs without Metro.
+    run('./gradlew', [':app:assembleRelease', '--no-daemon'], {
+      cwd: path.join(app, 'android'),
+      env: { ...process.env, ANDROID_HOME: androidHome },
+    });
+    const apk = path.join(
+      app,
+      'android/app/build/outputs/apk/release/app-release.apk'
+    );
+    if (!fs.existsSync(apk)) {
+      fail(`No release APK at ${apk}`);
+    }
+    process.stdout.write(
+      '\nReady for a device:\n' +
+        `  Android  adb install -r ${apk}\n` +
+        `  iOS      open ${path.join(app, 'ios')}/*.xcworkspace, choose a development ` +
+        'team under Signing & Capabilities, and run it on the phone\n'
+    );
+  }
 
   process.stdout.write(
     '\n\x1b[32mOK\x1b[0m — prebuild, compile, and the superclass rewrite all verified.\n' +

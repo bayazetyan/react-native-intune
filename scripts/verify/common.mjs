@@ -20,7 +20,6 @@ export const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../..'
 );
-export const KEEP = process.argv.includes('--keep');
 
 /** The value of `--name value`, or the fallback. */
 export const option = (name, fallback) => {
@@ -227,7 +226,9 @@ export async function verify(prefix, body) {
     printFailure(error);
     failed = true;
   } finally {
-    if (KEEP) {
+    // Read now rather than at import: a script may imply --keep after this module has
+    // loaded, as `verify:expo --device` does.
+    if (process.argv.includes('--keep')) {
       process.stdout.write(`\nProject kept at ${dir}\n`);
     } else {
       if (failed) {
