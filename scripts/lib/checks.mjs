@@ -25,7 +25,24 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import {
+  entitlementsWithKeychainGroups,
+  pbxprojAddConfiguratorPhase,
+  pbxprojSetDeploymentTarget,
+  pbxprojSetEntitlements,
+  plistEnsureStrings,
+  plistEnsureUrlScheme,
+  plistRemoveKeys,
+} from './edits.mjs';
 import { read, rel } from './project.mjs';
+
+/**
+ * The Expo plugin's transforms, used here for the same edits in a bare project. One
+ * implementation of each, already tested and already run against real builds, rather
+ * than a second one that drifts.
+ */
+const transforms = createRequire(import.meta.url)('../../plugin/transforms.js');
 
 const MARKER = 'react-native-intune: managed block';
 
@@ -116,6 +133,12 @@ const androidChecks = [
         verify = true       // catches plugin-induced runtime failures
         incremental = true  // the default is false
     }`,
+    apply(project) {
+      const file = project.android.appBuildGradle;
+      const src = read(file);
+      // The Kotlin DSL is not edited — reported instead, like it is inspected.
+      return src ? { file, contents: transforms.withMamPluginApplied(src) } : null;
+    },
   },
 
   {
@@ -141,6 +164,57 @@ const androidChecks = [
   And javassist, whose version must match the SDK exactly:
 
     classpath "org.javassist:javassist:3.29.2-GA"`,
+    apply(project) {
+      const file = project.android.rootBuildGradle;
+      const src = read(file);
+      const contents = src && transforms.withMamClasspath(src);
+      return contents ? { file, contents } : null;
+    },
+  },
+
+  {
+    id: 'android-min-sdk',
+    platform: 'android',
+    title: 'minSdk 24 or later',
+    severity: 'loud',
+    /**
+     * MSAL requires 24 and React Native 0.74's template ships 23. Loud rather than silent
+     * — the manifest merger fails and names MSAL — but it is the first thing a 0.74
+     * project hits, and cheaper found here than after a Gradle run.
+     */
+    inspect(project) {
+      const root = read(project.android.rootBuildGradle);
+      const properties = read(path.join(project.android.dir, 'gradle.properties'));
+      const value =
+        firstMatch(root, /minSdkVersion\s*=\s*(\d+)/) ??
+        firstMatch(properties, /^android\.minSdkVersion\s*=\s*(\d+)/m) ??
+        firstMatch(read(project.android.appBuildGradle), /minSdk(?:Version)?\s*=?\s*(\d+)/);
+      if (!value) {
+        return { state: 'unknown', detail: 'no literal minSdkVersion in the build files' };
+      }
+      return Number(value) >= 24
+        ? { state: 'ok', detail: value }
+        : { state: 'wrong', detail: `minSdkVersion ${value}` };
+    },
+    why:
+      'MSAL declares minSdk 24. Below it the manifest merger refuses the build, and the ' +
+      'fix is one number.',
+    instruction: () =>
+      `In android/build.gradle:
+
+    buildscript {
+      ext {
+        minSdkVersion = 24
+      }
+    }`,
+    apply(project) {
+      const file = project.android.rootBuildGradle;
+      const src = read(file);
+      const m = src && src.match(/(minSdkVersion\s*=\s*)(\d+)/);
+      return m && Number(m[2]) < 24
+        ? { file, contents: src.replace(m[0], `${m[1]}24`) }
+        : null;
+    },
   },
 
   {
@@ -330,6 +404,23 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
     RNIntuneAuthCallback.register(this)
 
   Code inside your own class, so setup reports it rather than editing it.`,
+    /**
+     * An edit to the developer's own source, which setup otherwise avoids — but the change
+     * is one line after `super.onCreate()`, it is shown as a diff before anything is
+     * written, and the tree has to be clean so it is one revert away. Leaving it manual
+     * leaves the one silent omission here that nothing else would catch.
+     */
+    apply(project) {
+      const [file] = project.android.applicationSources;
+      if (!file) {
+        return null;
+      }
+      const contents = transforms.withMamApplication(
+        read(file),
+        file.endsWith('.kt') ? 'kt' : 'java'
+      );
+      return contents ? { file, contents } : null;
+    },
   },
 
   {
@@ -380,6 +471,45 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
       -keystore android/app/debug.keystore -storepass android \\
       | openssl sha1 -binary | openssl base64`
   }`;
+    },
+    /**
+     * Written with the hash of android/app/debug.keystore, computed here — the key a
+     * debug build is signed with, and the one most apps are first run with. A release
+     * signed with another key needs that key's hash as a second <data> entry, which
+     * setup cannot know; the comment it writes says so.
+     */
+    apply(project) {
+      const file = project.android.manifest;
+      const src = read(file);
+      const hash = signatureHash(project);
+      const applicationId = read(project.android.appBuildGradle).match(
+        /applicationId\s*=?\s*["']([\w.]+)["']/
+      )?.[1];
+      if (!src || !hash || !applicationId || !/<\/application>/.test(src)) {
+        return null;
+      }
+      const activity = `
+        <!-- ${MARKER}: the MSAL redirect. The path is the hash of the debug keystore;
+             a release build signed with another key needs that key's hash as a second
+             <data> element, and the matching redirect URI registered in Entra. -->
+        <activity
+            android:name="com.microsoft.identity.client.BrowserTabActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="msauth"
+                    android:host="${applicationId}"
+                    android:path="/${hash}" />
+            </intent-filter>
+        </activity>
+`;
+      return {
+        file,
+        contents: src.replace(/(\n?)([ \t]*)<\/application>/, `${activity}$2</application>`),
+      };
     },
   },
 
@@ -569,6 +699,26 @@ function appDeploymentTargets(pbxproj) {
 /** Ruby comments — whole-line or trailing — so a commented-out platform line is ignored. */
 const stripRubyComments = (src) => src.replace(/(^|\s)#.*$/gm, '$1');
 
+/**
+ * The Run Script phase setup adds. It fails the build when the tool is missing rather
+ * than skipping it, because a skipped run leaves a plist without the schemes the SDK
+ * needs, and that fails at sign-in with an empty log instead of here with a reason.
+ */
+const CONFIGURATOR_SCRIPT = `# ${MARKER}: Microsoft's IntuneMAMConfigurator, run on this app's Info.plist and
+# entitlements. A build phase rather than a manual step, because what it writes is not a
+# fixed list and changes between SDK versions. It is idempotent.
+set -euo pipefail
+
+CONFIGURATOR="$SRCROOT/../node_modules/react-native-intune/vendor/ios/IntuneMAMConfigurator"
+
+if [ ! -x "$CONFIGURATOR" ]; then
+  echo "error: IntuneMAMConfigurator is missing — run: node node_modules/react-native-intune/scripts/fetch-sdks.mjs"
+  exit 1
+fi
+
+"$CONFIGURATOR" -i "$SRCROOT/$INFOPLIST_FILE" -e "$SRCROOT/$CODE_SIGN_ENTITLEMENTS"
+`;
+
 const iosChecks = [
   {
     id: 'ios-deployment-target',
@@ -658,6 +808,29 @@ const iosChecks = [
   (IPHONEOS_DEPLOYMENT_TARGET), then run pod install again.
 
   Expo: set it with expo-build-properties — { "ios": { "deploymentTarget": "17.0" } }.`,
+    /**
+     * The Podfile and the app target together — raising one without the other is the case
+     * this check exists to catch. An Expo Podfile is left alone: prebuild regenerates it,
+     * and the value belongs in expo-build-properties.
+     */
+    apply(project) {
+      const podfile = project.ios.podfile;
+      const src = read(podfile);
+      const line = src.match(/^(\s*platform\s+:ios\s*,\s*)(.+)$/m);
+      if (!line || /ios\.deploymentTarget/.test(line[2])) {
+        return null;
+      }
+      const version = MIN_IOS.join('.');
+      const edits = [{ file: podfile, contents: src.replace(line[0], `${line[1]}'${version}'`) }];
+      const pbxproj = read(project.ios.pbxproj);
+      const next =
+        pbxproj &&
+        pbxprojSetDeploymentTarget(pbxproj, version, (v) => versionAtLeast(v, MIN_IOS));
+      if (next) {
+        edits.push({ file: project.ios.pbxproj, contents: next });
+      }
+      return edits;
+    },
   },
 
   {
@@ -721,6 +894,40 @@ ${KEYCHAIN_GROUPS.map((g) => `        <string>${g}</string>`).join('\n')}
   The app's own group first, then the SDK's, then MSAL's cache. The first entry may be
   written as the literal bundle id or as $(PRODUCT_BUNDLE_IDENTIFIER) — both work.`;
     },
+    /**
+     * React Native's template has no entitlements file, so this usually creates one and
+     * points the app target at it. An app target that already names a differently-called
+     * entitlements file is left to be edited by hand: creating a second file it never
+     * reads would look fixed and change nothing.
+     */
+    apply(project) {
+      const ios = project.ios;
+      const pbxproj = read(ios.pbxproj);
+      if (!ios.appName || !pbxproj) {
+        return null;
+      }
+      if (!ios.entitlements && /CODE_SIGN_ENTITLEMENTS\s*=/.test(pbxproj)) {
+        return null;
+      }
+      const file =
+        ios.entitlements ?? path.join(ios.dir, ios.appName, `${ios.appName}.entitlements`);
+      const contents = entitlementsWithKeychainGroups(read(file), [
+        '$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)',
+        ...KEYCHAIN_GROUPS,
+      ]);
+      if (!contents) {
+        return null;
+      }
+      const edits = [{ file, contents }];
+      const next = pbxprojSetEntitlements(
+        pbxproj,
+        `${ios.appName}/${ios.appName}.entitlements`
+      );
+      if (next) {
+        edits.push({ file: ios.pbxproj, contents: next });
+      }
+      return edits;
+    },
   },
 
   {
@@ -755,6 +962,12 @@ ${KEYCHAIN_GROUPS.map((g) => `        <string>${g}</string>`).join('\n')}
         </array>
       </dict>
     </array>`,
+    apply(project) {
+      const file = project.ios.infoPlist;
+      const src = read(file);
+      const contents = src && plistEnsureUrlScheme(src, 'msauth.$(PRODUCT_BUNDLE_IDENTIFIER)');
+      return contents ? { file, contents } : null;
+    },
   },
 
   {
@@ -784,6 +997,13 @@ ${KEYCHAIN_GROUPS.map((g) => `        <string>${g}</string>`).join('\n')}
 ${MSAL_QUERY_SCHEMES.map((s) => `        <string>${s}</string>`).join('\n')}
         <string>companyportal</string>
     </array>`,
+    apply(project) {
+      const file = project.ios.infoPlist;
+      const src = read(file);
+      const contents =
+        src && plistEnsureStrings(src, 'LSApplicationQueriesSchemes', MSAL_QUERY_SCHEMES);
+      return contents ? { file, contents } : null;
+    },
   },
 
   {
@@ -814,6 +1034,16 @@ ${MSAL_QUERY_SCHEMES.map((s) => `        <string>${s}</string>`).join('\n')}
 
   Note: ADALCacheKeychainGroupOverride is a different key and is NOT removed — it has
   no runtime equivalent and is the only way to set the keychain group.`,
+    apply(project) {
+      const file = project.ios.infoPlist;
+      const src = read(file);
+      return src
+        ? {
+            file,
+            contents: plistRemoveKeys(src, ['ADALClientId', 'ADALAuthority', 'ADALRedirectUri']),
+          }
+        : null;
+    },
   },
 
   {
@@ -846,6 +1076,18 @@ ${MSAL_QUERY_SCHEMES.map((s) => `        <string>${s}</string>`).join('\n')}
     }
 
   Code in your own AppDelegate, so setup reports it rather than editing it.`,
+    /** The Expo plugin's transform, which adds the method when a template has none. */
+    apply(project) {
+      const file = project.ios.appDelegate;
+      if (!file) {
+        return null;
+      }
+      const contents = transforms.withMsalResponseHandler(
+        read(file),
+        file.endsWith('.swift') ? 'swift' : 'objcpp'
+      );
+      return contents ? { file, contents } : null;
+    },
   },
 
   {
@@ -904,8 +1146,14 @@ ${MSAL_QUERY_SCHEMES.map((s) => `        <string>${s}</string>`).join('\n')}
       -i "$SRCROOT/$INFOPLIST_FILE" \\
       -e "$SRCROOT/${'$'}{CODE_SIGN_ENTITLEMENTS}"
 
-  Not wrapped by setup: it is Microsoft's tool, and wrapping it means owning what it
-  does. The line above is what to paste.`,
+  setup adds it for you. It runs Microsoft's tool as it is — setup writes the phase,
+  not a wrapper around what the tool does.`,
+    apply(project) {
+      const file = project.ios.pbxproj;
+      const src = read(file);
+      const contents = src && pbxprojAddConfiguratorPhase(src, CONFIGURATOR_SCRIPT);
+      return contents ? { file, contents } : null;
+    },
   },
 ];
 
