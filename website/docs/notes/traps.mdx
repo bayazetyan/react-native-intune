@@ -129,6 +129,18 @@ already registered without reporting anything. This library short-circuits it an
 immediately; if you call the SDK directly, check `enrolledAccountId` first.
 :::
 
+:::warning[A green debug build says nothing about release]
+Debug builds skip lintVital and minification, so a release can be broken while every
+debug build passes. This library shipped two versions that way: a clean
+`:app:assembleRelease` failed in every consumer app at `lintVitalAnalyzeRelease`, on a
+missing `local_aar_for_lint/release/out.aar`, because a workaround here disabled the task
+that produces it. The example app hid it for three weeks by keeping an `out.aar` from
+before the workaround in its build directory.
+
+Build release from a clean state before calling anything verified. The verification
+scripts in this repository now do that on every run.
+:::
+
 :::warning[A minified release build fails on classes you never referenced]
 `assembleRelease` succeeds only because the React Native template ships
 `enableProguardInReleaseBuilds = false`, so R8 never runs. Turn it on and the build fails
