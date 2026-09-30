@@ -110,9 +110,18 @@ gradle.taskGraph.whenReady { graph ->
  * Nothing is lost: autolinking consumes this library as a Gradle *project*, so its AAR is
  * never built for a consumer. `:app:assembleDebug` was always the working form; now the
  * root form works too.
+ *
+ * **Only `bundleDebugAar` and `bundleReleaseAar`.** The first version of this matched
+ * `bundle.*Aar`, which also disabled `bundle{Debug,Release}LocalLintAar` — and those *are*
+ * consumed by the app: its `lintVitalAnalyzeRelease` reads the lint AAR each library
+ * project produces. With them disabled every clean `assembleRelease` in a consumer app
+ * failed on a missing `local_aar_for_lint/release/out.aar`. The lint AAR is not a
+ * publishable artifact and AGP builds it from a local .aar dependency without complaint;
+ * the example app kept passing only on a copy left in its build directory from before
+ * the broad match existed.
  */
 tasks.configureEach { task ->
-  if (task.name ==~ /bundle.*Aar/) {
+  if (task.name ==~ /bundle(Debug|Release)Aar/) {
     task.enabled = false
     task.doFirst {
       logger.lifecycle(
