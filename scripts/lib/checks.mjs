@@ -475,6 +475,55 @@ const versionAtLeast = (value, [major, minor]) => {
   return a > major || (a === major && b >= minor);
 };
 
+/**
+ * The deployment target each configuration of each application target actually builds
+ * with: the target's own setting, or the project-level one it inherits when it sets
+ * none. A value elsewhere in the file — a project-level default the target overrides,
+ * another target — says nothing about what the app is built for, and counting those is
+ * how an Expo project, whose project level reads 16.4 while the app target reads 17.0,
+ * was reported as wrong.
+ */
+function appDeploymentTargets(pbxproj) {
+  const object = (isa) =>
+    new RegExp(
+      `(\\w{24})\\s*(?:/\\*[^*]*\\*/)?\\s*=\\s*\\{\\s*isa\\s*=\\s*${isa};([\\s\\S]*?)\\n\\t\\t\\};`,
+      'g'
+    );
+  const configs = new Map();
+  for (const [, id, body] of pbxproj.matchAll(object('XCBuildConfiguration'))) {
+    configs.set(id, {
+      name: body.match(/\bname\s*=\s*"?([^";]+)"?;/)?.[1],
+      value: body.match(/IPHONEOS_DEPLOYMENT_TARGET\s*=\s*"?([\d.]+)"?;/)?.[1],
+    });
+  }
+  const lists = new Map();
+  for (const [, id, body] of pbxproj.matchAll(object('XCConfigurationList'))) {
+    const ids = body.match(/buildConfigurations\s*=\s*\(([^)]*)\)/)?.[1] ?? '';
+    lists.set(id, [...ids.matchAll(/\w{24}/g)].map((m) => m[0]));
+  }
+  const listOf = (body) => body.match(/buildConfigurationList\s*=\s*(\w{24})/)?.[1];
+
+  const [, , projectBody = ''] = [...pbxproj.matchAll(object('PBXProject'))][0] ?? [];
+  const inherited = new Map(
+    (lists.get(listOf(projectBody)) ?? []).map((id) => [
+      configs.get(id)?.name,
+      configs.get(id)?.value,
+    ])
+  );
+
+  const effective = [];
+  for (const [, , body] of pbxproj.matchAll(object('PBXNativeTarget'))) {
+    if (!/productType\s*=\s*"com\.apple\.product-type\.application"/.test(body)) {
+      continue;
+    }
+    for (const id of lists.get(listOf(body)) ?? []) {
+      const c = configs.get(id) ?? {};
+      effective.push({ name: c.name, value: c.value ?? inherited.get(c.name) ?? null });
+    }
+  }
+  return effective;
+}
+
 /** Ruby comments — whole-line or trailing — so a commented-out platform line is ignored. */
 const stripRubyComments = (src) => src.replace(/(^|\s)#.*$/gm, '$1');
 
@@ -534,18 +583,22 @@ const iosChecks = [
         return { state: 'wrong', detail: `${source} targets ${target}` };
       }
 
-      const pbxproj = read(project.ios.pbxproj);
-      const low = [
-        ...new Set(
-          [...pbxproj.matchAll(/IPHONEOS_DEPLOYMENT_TARGET\s*=\s*"?([\d.]+)"?;/g)]
-            .map((m) => m[1])
-            .filter((v) => !versionAtLeast(v, MIN_IOS))
-        ),
-      ];
+      const effective = appDeploymentTargets(read(project.ios.pbxproj));
+      if (effective.length === 0) {
+        return {
+          state: 'unknown',
+          detail: `${source} targets ${target}; no application target found in the Xcode project`,
+        };
+      }
+      // A configuration that sets it nowhere builds for the SDK's own default, which is
+      // the newest iOS — not a problem, so only explicit low values count.
+      const low = effective.filter((e) => e.value && !versionAtLeast(e.value, MIN_IOS));
       if (low.length > 0) {
         return {
           state: 'wrong',
-          detail: `${source} targets ${target}, but the Xcode project still has ${low.join(', ')}`,
+          detail:
+            `${source} targets ${target}, but the app target builds for ` +
+            low.map((e) => `${e.value} (${e.name})`).join(', '),
         };
       }
       return { state: 'ok', detail: `${source}: ${target}` };
