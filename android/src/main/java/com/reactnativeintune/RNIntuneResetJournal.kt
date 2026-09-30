@@ -120,7 +120,7 @@ internal object RNIntuneResetJournal {
       upn = null,
       tenantId = tenantId,
       wipe = true,
-      reason = "remote_wipe",
+      reason = "remoteWipe",
     )
     return true
   }

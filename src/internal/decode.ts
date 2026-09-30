@@ -97,19 +97,38 @@ const RESET_STAGES = new Set<string>(Object.values(ResetStage));
 
 const RESET_REASONS = new Set<string>([
   'logout',
-  'tenant_changed',
-  'intune_disabled',
-  'remote_wipe',
-  'account_switch',
-  'support_reset',
+  'tenantChanged',
+  'intuneDisabled',
+  'remoteWipe',
+  'accountSwitch',
+  'supportReset',
   'resume',
 ]);
 
+/**
+ * The spellings before 1.0. The journal is persisted on the device, so an app updated
+ * while a reset is unfinished — the process killed mid-reset, or a service wipe waiting
+ * for the next launch — reads a reason an older version wrote. Dropping it to null would
+ * lose exactly the case the reason exists for: telling the user their administrator
+ * removed access.
+ */
+const LEGACY_RESET_REASONS: Record<string, ResetReason> = {
+  tenant_changed: 'tenantChanged',
+  intune_disabled: 'intuneDisabled',
+  remote_wipe: 'remoteWipe',
+  account_switch: 'accountSwitch',
+  support_reset: 'supportReset',
+};
+
 /** Null rather than a guess: an unrecognised reason is not worth acting on. */
 export function toResetReason(value: unknown): ResetReason | null {
-  return typeof value === 'string' && RESET_REASONS.has(value)
-    ? (value as ResetReason)
-    : null;
+  if (typeof value !== 'string') {
+    return null;
+  }
+  if (RESET_REASONS.has(value)) {
+    return value as ResetReason;
+  }
+  return LEGACY_RESET_REASONS[value] ?? null;
 }
 
 export function toResetStage(value: unknown): ResetStage | null {

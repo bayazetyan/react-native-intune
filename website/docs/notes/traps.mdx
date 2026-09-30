@@ -198,8 +198,8 @@ second of background work is acceptable, not on a path that blocks first paint.
 :::tip[A resumed reset carries the reason it started with]
 When the SDK kills the process mid-reset, the journal picks the reset up on the next launch
 — and it carries the *original* reason, not a generic "resume". Verified on an iPad against
-a real tenant: a reset started as `support_reset` was killed at the `cleaningLocal` stage
-and resumed as `support_reset`.
+a real tenant: a reset started as `supportReset` was killed at the `cleaningLocal` stage
+and resumed as `supportReset`.
 
 This matters for exactly one branch. On an administrator-initiated wipe the process dies
 before your handler can run, so the resume is the only chance to tell the user "an

@@ -61,14 +61,20 @@ export enum FileProtectionLevel {
   None = 'none',
 }
 
-/** Why a reset was started. Recorded in the journal and surfaced in `getDiagnostics`. */
+/**
+ * Why a reset was started. Recorded in the journal and surfaced in `getDiagnostics`.
+ *
+ * camelCase, like every other string value in this API. Before 1.0 these were
+ * snake_case (`remote_wipe`); a journal written by an older version is still read, and
+ * its reason reported in the new spelling.
+ */
 export type ResetReason =
   | 'logout'
-  | 'tenant_changed'
-  | 'intune_disabled'
-  | 'remote_wipe'
-  | 'account_switch'
-  | 'support_reset'
+  | 'tenantChanged'
+  | 'intuneDisabled'
+  | 'remoteWipe'
+  | 'accountSwitch'
+  | 'supportReset'
   | 'resume';
 
 /**

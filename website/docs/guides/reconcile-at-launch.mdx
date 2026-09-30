@@ -18,11 +18,11 @@ async function reconcile() {
     return;
   }
   if (!wanted.intuneEnabled && state.enrolledAccountId) {
-    await Intune.reset({ wipe: true, reason: 'intune_disabled' });
+    await Intune.reset({ wipe: true, reason: 'intuneDisabled' });
     return;
   }
   if (state.configured && wanted.tenantId !== state.configuredTenantId) {
-    await Intune.reset({ wipe: true, reason: 'tenant_changed' });
+    await Intune.reset({ wipe: true, reason: 'tenantChanged' });
     return;
   }
   if (wanted.intuneEnabled && !state.enrolledAccountId) {

@@ -290,11 +290,26 @@ describe('getState', () => {
     mockNative.getState.mockResolvedValueOnce({
       configured: true,
       pendingReset: 'unregistering',
-      pendingResetReason: 'remote_wipe',
+      pendingResetReason: 'remoteWipe',
     });
     const state = await Intune.getState();
     expect(state.pendingReset).toBe(ResetStage.Unregistering);
-    expect(state.pendingResetReason).toBe('remote_wipe');
+    expect(state.pendingResetReason).toBe('remoteWipe');
+  });
+
+  /**
+   * The journal is on the device, so an app updated in the middle of a reset reads a
+   * reason the previous version wrote. The service-initiated wipe is the case that
+   * matters: it is written before the process dies, and read at the next launch — which
+   * may be the first launch of the new version.
+   */
+  it('reads a reason written in the pre-1.0 spelling', async () => {
+    mockNative.getState.mockResolvedValueOnce({
+      configured: true,
+      pendingReset: 'unregistering',
+      pendingResetReason: 'remote_wipe',
+    });
+    expect((await Intune.getState()).pendingResetReason).toBe('remoteWipe');
   });
 
   it('nulls a reset reason it does not recognise rather than guessing', async () => {
