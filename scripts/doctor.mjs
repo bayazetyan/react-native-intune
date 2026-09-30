@@ -116,7 +116,8 @@ function main() {
         2
       ) + '\n'
     );
-    process.exit(s.blocking.length > 0 ? 1 : 0);
+    process.exitCode = s.blocking.length > 0 ? 1 : 0;
+    return;
   }
 
   process.stdout.write(`\nreact-native-intune doctor\n${project.root}\n`);
@@ -141,7 +142,7 @@ function main() {
         `licensed for Intune, that an App Protection Policy targets this app, and that\n` +
         `a broker is installed on the device. Enrollment needs all three.\n\n`
     );
-    process.exit(0);
+    return;
   }
 
   if (s.silent.length > 0) {
@@ -182,7 +183,10 @@ function main() {
   }
 
   process.stdout.write('\n');
-  process.exit(s.blocking.length > 0 ? 1 : 0);
+  // An exit code, not process.exit(): on macOS a write to a pipe is asynchronous, and
+  // exiting straight after a long report cut it off mid-way whenever doctor's output was
+  // piped — into a CI log, a file, or `| less`.
+  process.exitCode = s.blocking.length > 0 ? 1 : 0;
 }
 
 /**
