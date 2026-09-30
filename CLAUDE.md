@@ -98,6 +98,12 @@ yarn workspace website build
 yarn workspace example ios      # run example on iOS
 yarn workspace example android  # run example on Android
 
+# a fresh app from the packed tarball, debug and release — the check that catches what
+# the example cannot (it links the workspace). Run before a release and after touching
+# the plugin, setup, doctor or android/build.gradle.
+yarn verify:bare [--rn 0.74.7] [--release]
+yarn verify:expo [--sdk 54] [--device]
+
 # after touching src/NativeIntune.ts, Codegen must re-run:
 cd example/ios && bundle exec pod install
 cd example/android && ./gradlew generateCodegenArtifactsFromSchema

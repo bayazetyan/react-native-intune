@@ -99,6 +99,35 @@ forever. A claimed test that did not happen costs the next person a day of looki
 wrong place. [Traps](../notes/traps.mdx) is the accumulated list.
 :::
 
+### Building a fresh app from the tarball
+
+The example app links this library as a workspace and was integrated by hand, so it
+proves the code works — not that a new project ends up protected. Two scripts build one
+from scratch, the way a consumer would:
+
+```bash
+yarn verify:bare [--rn 0.87.1] [--platform android|ios] [--release] [--keep]
+yarn verify:expo [--sdk 57] [--device] [--keep]
+```
+
+Both pack the library, install the tarball into a fresh app, build debug **and release**,
+and read the MAM plugin's report for the sentence that says `MainApplication` was
+actually rewritten. `verify:bare` integrates through `setup` alone and requires `doctor`
+to be green before anything is compiled; `--rn` picks the React Native version, which is
+how both ends of the supported range are tested. `verify:expo --device` builds the
+example's test screen under `intune.example` for a device.
+
+They need the network, the SDKs and several minutes each, and cannot run in CI — the SDK
+may not be redistributed — so they are run by hand before a release, and by anyone
+changing the plugin, `setup`, `doctor` or the Gradle wiring.
+
+### When Microsoft ships a new SDK
+
+A daily workflow compares the pins in `sdk-versions.json` with Microsoft's latest releases
+and opens an issue labelled `sdk-update` for each newer one, with the release notes, the
+files to change and the checklist. A bump that raises any platform minimum is a major —
+see [Versioning](../versioning.mdx).
+
 Before assuming you found a bug here, work through
 [Troubleshooting](../troubleshooting.mdx). Most Intune "bugs" are one of those, and policy
 propagation is on Microsoft's schedule rather than ours.
