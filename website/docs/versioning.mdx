@@ -1,0 +1,100 @@
+---
+id: versioning
+title: Versioning and support
+sidebar_label: Versioning
+sidebar_position: 5
+---
+
+This library follows [semantic versioning](https://semver.org). What that promises, and
+what it deliberately does not, is spelled out here, because a library that wraps someone
+else's SDK cannot make every promise semver implies.
+
+## What the version promises
+
+**A major version** changes or removes something you depend on, or stops building in a
+project that built before.
+
+**A minor version** adds something, and nothing that built before stops building.
+
+**A patch** fixes something without adding to the API.
+
+## Enums and unions grow in minor versions
+
+`EnrollmentStatus`, `IntuneErrorCode`, `ResetReason` and the other closed sets of values
+gain members in minor versions. Microsoft adds statuses to its SDKs, and passing a new one
+through should not have to wait for a major.
+
+Give every `switch` over them a `default`:
+
+```ts
+switch (result.status) {
+  case EnrollmentStatus.Succeeded:
+    // …
+    break;
+  case EnrollmentStatus.Failed:
+    // …
+    break;
+  default:
+    // A status this version of your app does not know yet. Treat it the way you treat
+    // the ones you do not act on — for EnrollmentStatus, do not block the user.
+    break;
+}
+```
+
+A value the native side reports and this library does not map arrives as
+`EnrollmentStatus.Unknown` rather than throwing, so an SDK update cannot crash a shipped
+app.
+
+## Outside the contract
+
+These can change in any release, including a patch. Log them, attach them to support
+bundles, show them to an engineer — do not branch on them.
+
+| | Why it cannot be stable |
+|---|---|
+| `EnrollmentResult.nativeCode` and `nativeMessage` | They are the SDK's own constant names and debug strings, and change when Microsoft's SDK does. |
+| `PolicySnapshot.raw` | Everything the SDK reports beyond the typed fields. Anything worth depending on gets promoted to a typed field first. |
+| The keys of `getDiagnostics()` | An opaque support bundle; its contents follow whatever is useful to diagnose. |
+| `resolveToken`, `rejectToken` | Present in the native spec, but not public API. `setTokenProvider` wraps them. |
+
+`IntuneState.registeredAccountIds` is an array because it reports what the SDK reports.
+With one identity per installation — a fixed constraint of this library — it holds zero
+or one account in practice, and more than one means an earlier registration was left
+behind.
+
+## Microsoft's SDK versions
+
+Each release of this library pins exact versions of the Intune App SDK and MSAL for both
+platforms, in `sdk-versions.json`. Moving a pin follows the same rules as everything else,
+judged by what it does to your build:
+
+| The new SDK | This library's release |
+|---|---|
+| Raises a minimum — iOS, Xcode, Android, Gradle, AGP or Kotlin | **Major** — it stops building somewhere it built before |
+| Adds something this library exposes | **Minor** |
+| Only fixes things | **Patch** |
+
+Expect a major roughly once a year from this alone: Microsoft raises the minimum iOS
+version with new SDK releases, and does not let apps on old SDKs stay in the stores
+indefinitely. A major for that reason is the honest signal; hiding it in a minor would
+break builds without warning.
+
+Pins are checked against Microsoft's latest releases every day, and a newer one opens an
+issue in this repository with the release notes and what a bump has to change.
+
+## Supported ranges
+
+| | Supported |
+|---|---|
+| React Native | 0.74 and later, New Architecture |
+| Expo | SDK 54 and later — `@expo/config-plugins` 54 and later |
+| iOS | 17.0 and later, Xcode 26 and later |
+| Android | minSdk 24, Java 17 |
+
+These are the ranges this library has been **built and run** on, not the ranges it is
+believed to work on, and they are what `peerDependencies` declares — which is why an Expo
+SDK 53 project, whose `@expo/config-plugins` is 10.x, is refused at install rather than
+left to find out. Expo SDK 54 through 57 each build, debug and release, with the class
+rewrite confirmed; enrollment on a device has been run on SDK 57. Both ends of the React Native range are built from a fresh project
+before a release — `yarn verify:bare --rn <version>` in this repository. That cannot run in
+CI: it needs Microsoft's SDK, which may not be redistributed.

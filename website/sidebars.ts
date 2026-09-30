@@ -51,7 +51,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Reference',
       collapsed: false,
-      items: ['api', 'reference/reference'],
+      items: ['api', 'versioning', 'reference/reference'],
     },
     {
       type: 'category',
