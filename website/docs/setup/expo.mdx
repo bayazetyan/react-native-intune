@@ -17,8 +17,11 @@ every change runs `yarn verify:expo`, which prebuilds a real project from the pu
 tarball, builds it, and reads the MAM plugin's report to confirm the class was actually
 rewritten.
 
-What that still does not cover is enrollment from an EAS build on a device. If you hit
-something, an issue with the prebuild output attached is genuinely useful.
+Enrollment has been run from an Expo build on a device: an SDK 57 app prebuilt from the
+tarball, built in Release, installed on an iPad (iPadOS 26.6.1), signed in through
+Microsoft Authenticator and enrolled against a real tenant. Not run yet: Android
+enrollment from an Expo build, and a build made by EAS rather than on a local machine. If
+you hit something, an issue with the prebuild output attached is genuinely useful.
 :::
 
 ```json title="app.json"
