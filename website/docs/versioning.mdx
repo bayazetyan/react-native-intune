@@ -103,8 +103,10 @@ CI: it needs Microsoft's SDK, which may not be redistributed.
 Microsoft states that linking Intune App SDK 21.x and compiling with Xcode 27 is
 unsupported, and that Xcode 27 support comes with SDK 22.x
 ([announcement](https://github.com/microsoftconnect/ms-intune-app-sdk-ios/discussions/676)).
-This library pins 21.x, so build with Xcode 26 for anything you ship. Builds and an
-enrollment on an iPad did work with Xcode 27.0 here — a data point, not support. Moving
+This library pins 21.x, so build with Xcode 26 for anything you ship. With Xcode 27.0
+here, an iPad build of SDK 21.9.0 enrolled and enforced policy — the PIN was required,
+copying out to another app was blocked, and a screen capture showed the SDK's "doesn't
+allow screen capture" screen instead of the app. That is a data point, not support. Moving
 to 22.x will be a major version of this library, because it raises the Xcode minimum.
 :::
 

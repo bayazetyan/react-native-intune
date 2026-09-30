@@ -61,6 +61,20 @@ yet — while the app reports itself as secure. See
 [Enrollment outcomes](../guides/enrollment-outcomes.mdx).
 :::
 
+:::info[On a managed iPad the screenshot buttons may do nothing at all]
+A device under an MDM profile can have screenshots disabled system-wide, so the button
+combination does nothing anywhere — which says nothing about whether the app's own
+screen-capture policy works. Take the capture from the Mac instead, with the app in the
+foreground:
+
+```bash
+xcrun devicectl device capture screenshot --device <udid> --destination shot.png
+```
+
+With the policy in force, the image is the SDK's "Your organization doesn't allow screen
+capture or recording" screen rather than the app.
+:::
+
 ## Loud — it breaks, but the error names the wrong cause
 
 :::warning[Broker detection needs `msauthv2://broker`, not `msauthv2://`]
