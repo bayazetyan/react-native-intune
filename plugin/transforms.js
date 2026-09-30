@@ -27,9 +27,20 @@ intunemam {
 }
 `;
 
-/** Applies the MAM plugin to android/app/build.gradle. */
+/**
+ * Applies the MAM plugin to android/app/build.gradle.
+ *
+ * The guard looks for an actual application at the start of a line, not the plugin id
+ * anywhere: commenting the apply out is the first thing anyone does when the bytecode
+ * rewrite breaks a library, and a guard that read the comment as applied would leave
+ * the app unprotected while `setup` reported success.
+ */
 function withMamPluginApplied(contents) {
-  if (contents.includes('com.microsoft.intune.mam')) {
+  if (
+    /^[ \t]*(?:apply\s+plugin\s*:\s*|id\s*\(?\s*)["']com\.microsoft\.intune\.mam["']/m.test(
+      contents
+    )
+  ) {
     return contents;
   }
   return `${contents.trimEnd()}\n${MAM_PLUGIN_BLOCK}`;
@@ -212,7 +223,7 @@ function withMsalResponseHandler(contents, language) {
     ? /(func\s+application\s*\(\s*_\s+\w+\s*:\s*UIApplication\s*,\s*open\s+url\s*:\s*URL\s*,\s*options\s*:[^)]*\)\s*->\s*Bool\s*\{\s*\n(\s*)return\s+)/
     : /(-\s*\(BOOL\)\s*application\s*:\s*\(UIApplication\s*\*\)\s*\w+\s+openURL\s*:\s*\(NSURL\s*\*\)\s*url\s+options\s*:[^{]*\{\s*\n(\s*)return\s+)/;
   if (!handler.test(contents)) {
-    return null;
+    return withNewMsalResponseHandler(contents, isSwift);
   }
   const forward = isSwift
     ? 'MSALPublicClientApplication.handleMSALResponse(url, sourceApplication: options[.sourceApplication] as? String) || '
@@ -230,6 +241,102 @@ function withMsalResponseHandler(contents, language) {
   const at = lastImport.index + lastImport[0].length;
   next = `${next.slice(0, at)}\n${importLine}${next.slice(at)}`;
   return next;
+}
+
+/**
+ * React Native's own templates have no open-URL handler at all — only Expo's does — so
+ * for them the forward is a whole method. It goes at the end of the AppDelegate class,
+ * found by matching braces from the class declaration; string literals and comments are
+ * skipped so a brace in either cannot end the class early.
+ *
+ * No `override`: in these templates the class is a UIResponder conforming to
+ * UIApplicationDelegate, and the method is the protocol's, not a superclass's.
+ */
+function withNewMsalResponseHandler(contents, isSwift) {
+  const importLine = isSwift ? 'import MSAL' : '#import <MSAL/MSAL.h>';
+  let next = contents;
+
+  if (isSwift) {
+    const declaration = /class\s+AppDelegate\b[^{]*\{/.exec(next);
+    if (!declaration) {
+      return null;
+    }
+    const end = matchingBrace(
+      next,
+      declaration.index + declaration[0].length - 1
+    );
+    if (end === null) {
+      return null;
+    }
+    const method = `
+  /// Hands the sign-in result back to MSAL. Without it the broker's reply reaches the app
+  /// and is dropped, and sign-in never completes. Added by react-native-intune setup.
+  func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    MSALPublicClientApplication.handleMSALResponse(
+      url,
+      sourceApplication: options[.sourceApplication] as? String
+    )
+  }
+`;
+    next = `${next.slice(0, end).replace(/\s*$/, '\n')}${method}${next.slice(end)}`;
+  } else {
+    const implementation = /@implementation\s+AppDelegate\b[^\n]*\n/.exec(next);
+    if (!implementation) {
+      return null;
+    }
+    const at = implementation.index + implementation[0].length;
+    const method = `
+// Hands the sign-in result back to MSAL. Without it the broker's reply reaches the app and
+// is dropped, and sign-in never completes. Added by react-native-intune setup.
+- (BOOL)application:(UIApplication *)application
+            openURL:(NSURL *)url
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options
+{
+  return [MSALPublicClientApplication handleMSALResponse:url
+                                       sourceApplication:options[UIApplicationOpenURLOptionsSourceApplicationKey]];
+}
+`;
+    next = `${next.slice(0, at)}${method}${next.slice(at)}`;
+  }
+
+  const imports = isSwift
+    ? /^(?:\w+\s+)?import\s+\w+.*$/gm
+    : /^#import\s+.*$/gm;
+  const lastImport = [...next.matchAll(imports)].pop();
+  if (!lastImport) {
+    return null;
+  }
+  const at = lastImport.index + lastImport[0].length;
+  return `${next.slice(0, at)}\n${importLine}${next.slice(at)}`;
+}
+
+/** The index of the brace closing the one at `open`, skipping strings and comments. */
+function matchingBrace(src, open) {
+  let depth = 0;
+  for (let i = open; i < src.length; i += 1) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') {
+      i = src.indexOf('\n', i);
+      if (i === -1) return null;
+    } else if (c === '/' && src[i + 1] === '*') {
+      i = src.indexOf('*/', i + 2) + 1;
+      if (i === 0) return null;
+    } else if (c === '"') {
+      for (i += 1; i < src.length && src[i] !== '"'; i += 1) {
+        if (src[i] === '\\') i += 1;
+      }
+    } else if (c === '{') {
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return null;
 }
 
 module.exports = {

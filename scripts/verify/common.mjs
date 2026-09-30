@@ -226,7 +226,11 @@ export function installTarball(app, tarball, { ios = false } = {}) {
   const expected = [
     path.join(installed, 'vendor/android/Microsoft.Intune.MAM.SDK.aar'),
     ...(ios
-      ? [path.join(installed, 'vendor/ios/IntuneMAMSwift.xcframework')]
+      ? [
+          path.join(installed, 'vendor/ios/IntuneMAMSwift.xcframework'),
+          // setup puts it in a build phase, so a missing one fails the build.
+          path.join(installed, 'vendor/ios/IntuneMAMConfigurator'),
+        ]
       : []),
   ];
   if (expected.every((f) => fs.existsSync(f))) {

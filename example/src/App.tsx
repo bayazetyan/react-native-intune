@@ -207,7 +207,7 @@ export default function App() {
   const runReset = useCallback(async () => {
     setEnrollResult('resetting…');
     try {
-      await Intune.reset({ wipe: true, reason: 'support_reset' });
+      await Intune.reset({ wipe: true, reason: 'supportReset' });
       setEnrollResult('reset resolved, reconfiguring…');
     } catch (e) {
       setEnrollResult(`reset: ${describe(e)}`);

@@ -1,0 +1,25 @@
+name: SDK watch
+
+# Files an issue when Microsoft ships a newer Intune SDK or MSAL than the one pinned in
+# sdk-versions.json. See .github/scripts/sdk-watch.mjs for why this cannot be Dependabot.
+on:
+  schedule:
+    # Daily, early UTC. Microsoft publishes irregularly, and a day's delay costs nothing.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Compare the pins with the latest releases
+        run: node .github/scripts/sdk-watch.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

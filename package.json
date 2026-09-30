@@ -101,9 +101,9 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@expo/config-plugins": ">=7",
+    "@expo/config-plugins": ">=54.0.0",
     "react": "*",
-    "react-native": "*"
+    "react-native": ">=0.74.0"
   },
   "workspaces": [
     "example",
@@ -198,9 +198,7 @@
     ],
     "version": "0.63.0"
   },
-  "bin": {
-    "react-native-intune": "scripts/cli.mjs"
-  },
+  "bin": "scripts/cli.mjs",
   "engines": {
     "node": ">=18"
   },

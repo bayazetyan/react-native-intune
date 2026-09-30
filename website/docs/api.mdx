@@ -6,7 +6,7 @@ sidebar_position: 4
 
 import { Architecture } from '@site/src/components/diagrams/Architecture';
 
-Every public method, with the platform differences stated rather than hidden. Anything documented as internal — `PolicySnapshot.raw`, `resolveToken`, `rejectToken` — is outside the semver contract.
+Every public method, with the platform differences stated rather than hidden. Anything documented as internal — `PolicySnapshot.raw`, `nativeCode` and `nativeMessage`, the keys of `getDiagnostics()`, `resolveToken`, `rejectToken` — is outside the semver contract, and enums gain members in minor versions. See [Versioning](versioning.mdx).
 
 | Method | Purpose |
 |---|---|

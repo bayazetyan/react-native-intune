@@ -348,13 +348,45 @@ class AppDelegate: ExpoAppDelegate {
     }
   });
 
-  /** Null, which becomes a warning, rather than a forward written somewhere it never runs. */
-  it('returns null when there is no open-URL handler to extend', () => {
-    const without = SWIFT_APP_DELEGATE.replace(
-      /\s*\/\/ Linking API[\s\S]*?\n {2}\}\n/,
-      '\n'
+  /**
+   * React Native's own templates have no open-URL handler at all, so the forward has to
+   * be a whole method — at the end of the AppDelegate class, not before the next one.
+   */
+  it('adds a handler when the AppDelegate has none', () => {
+    const bare = `import UIKit
+import React
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+  var window: UIWindow?
+
+  func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+  ) -> Bool {
+    let message = "a brace in a string } must not end the class"
+    return true
+  }
+}
+
+class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
+}
+`;
+    const out = withMsalResponseHandler(bare, 'swift');
+    expect(out).toContain('import MSAL');
+    const cls = out.slice(
+      out.indexOf('class AppDelegate'),
+      out.indexOf('class ReactNativeDelegate')
     );
-    expect(without).not.toContain('open url');
-    expect(withMsalResponseHandler(without, 'swift')).toBeNull();
+    expect(cls).toContain('open url: URL');
+    expect(cls).toContain('MSALPublicClientApplication.handleMSALResponse(');
+    expect(withMsalResponseHandler(out, 'swift')).toBe(out);
+  });
+
+  /** Null, which becomes a warning, rather than a forward written somewhere it never runs. */
+  it('returns null when there is no AppDelegate class to extend', () => {
+    expect(
+      withMsalResponseHandler('import UIKit\n\nstruct NotIt {}\n', 'swift')
+    ).toBeNull();
   });
 });

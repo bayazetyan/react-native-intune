@@ -18,6 +18,10 @@
  *
  * The blocking distinction in SPEC §8 is load-bearing and easy to get backwards:
  * `NotLicensed` and `NotTargeted` must NOT block the user, `Failed` must.
+ *
+ * Gains members in minor versions, as Microsoft's SDKs add statuses — give a `switch`
+ * over it a `default`, and treat what lands there as not blocking. See
+ * [Versioning](https://bayazetyan.github.io/react-native-intune/docs/versioning).
  */
 export enum EnrollmentStatus {
   Succeeded = 'succeeded',
@@ -61,14 +65,22 @@ export enum FileProtectionLevel {
   None = 'none',
 }
 
-/** Why a reset was started. Recorded in the journal and surfaced in `getDiagnostics`. */
+/**
+ * Why a reset was started. Recorded in the journal and surfaced in `getDiagnostics`.
+ *
+ * camelCase, like every other string value in this API. Before 1.0 these were
+ * snake_case (`remote_wipe`); a journal written by an older version is still read, and
+ * its reason reported in the new spelling.
+ *
+ * Gains members in minor versions — give a `switch` over it a `default`.
+ */
 export type ResetReason =
   | 'logout'
-  | 'tenant_changed'
-  | 'intune_disabled'
-  | 'remote_wipe'
-  | 'account_switch'
-  | 'support_reset'
+  | 'tenantChanged'
+  | 'intuneDisabled'
+  | 'remoteWipe'
+  | 'accountSwitch'
+  | 'supportReset'
   | 'resume';
 
 /**
@@ -208,9 +220,19 @@ export type BrokerStatus = {
 export type EnrollmentResult = {
   status: EnrollmentStatus;
   accountId: string | null;
-  /** Raw platform constant *name*, e.g. `LicensedNotTargeted`. For support bundles. */
+  /**
+   * Raw platform constant *name*, e.g. `LicensedNotTargeted`. For support bundles.
+   *
+   * **Outside the semver contract.** It is the SDK's own name and changes when
+   * Microsoft's SDK does — log it, do not branch on it. Branch on `status`. See
+   * [Versioning](https://bayazetyan.github.io/react-native-intune/docs/versioning).
+   */
   nativeCode: string;
-  /** SDK debug string. Safe to log — contains no token. */
+  /**
+   * SDK debug string. Safe to log — contains no token.
+   *
+   * **Outside the semver contract**, like `nativeCode`.
+   */
   nativeMessage: string;
   restartRequired: boolean;
 };
@@ -224,6 +246,11 @@ export type EnrollmentResult = {
 export type IntuneState = {
   configured: boolean;
   configuredTenantId: string | null;
+  /**
+   * What the SDK reports as registered. An array because that is the SDK's shape; with
+   * one identity per installation it holds zero or one account in practice, and more
+   * than one means an earlier registration was left behind.
+   */
   registeredAccountIds: string[];
   enrolledAccountId: string | null;
   /** `null` means no account is registered. */
@@ -283,7 +310,12 @@ export type PolicySnapshot = {
   raw: Record<string, string>;
 };
 
-/** Opaque key/value for support bundles. Contains no tokens and no UPNs. */
+/**
+ * Opaque key/value for support bundles. Contains no tokens and no UPNs.
+ *
+ * **Outside the semver contract**: the keys follow whatever is useful to diagnose and
+ * may change in any release. See [Versioning](https://bayazetyan.github.io/react-native-intune/docs/versioning).
+ */
 export type Diagnostics = Record<string, string>;
 
 // ---------------------------------------------------------------- events
@@ -347,6 +379,9 @@ export type IntuneEvents = {
  *
  * `E_NATIVE` appearing in logs is a signal to extend the native mapping table, not an
  * acceptable steady state.
+ *
+ * Gains members in minor versions — give a `switch` over it a `default`. See
+ * [Versioning](https://bayazetyan.github.io/react-native-intune/docs/versioning).
  */
 export type IntuneErrorCode =
   | 'E_NOT_CONFIGURED'

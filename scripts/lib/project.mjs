@@ -178,10 +178,23 @@ function walk(dir, onFile, depth = 0) {
   }
 }
 
+/**
+ * Edits `setup` has decided on but not yet written, by path.
+ *
+ * Several checks change the same file — three edit Info.plist, three project.pbxproj —
+ * and each computes its edit from what it reads. Reading through this means the second
+ * edit starts from the first one's result instead of from the original file, which it
+ * would otherwise silently overwrite.
+ */
+export const pending = new Map();
+
 /** Reads a file, or returns an empty string. Callers treat absent and empty alike. */
 export function read(file) {
   if (!file) {
     return '';
+  }
+  if (pending.has(file)) {
+    return pending.get(file);
   }
   try {
     return fs.readFileSync(file, 'utf8');

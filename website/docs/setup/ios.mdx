@@ -11,6 +11,10 @@ Three of these steps fail **silently** when missed: the app builds, runs, and lo
 :::
 
 
+:::tip[`setup` applies these]
+`npx react-native-intune setup` makes every change on this page that is the same in every project, and shows each as a diff before writing it. This page is the reference for what it writes, and for doing it by hand. See [doctor and setup](../doctor.mdx) for what it leaves to you.
+:::
+
 1. **Raise the deployment target to 17.0, then `pod install`.** MAM SDK 21.x is built for iOS 17.0 (`minos 17.0`, read from the binary), and React Native's template targets lower — `min_ios_version_supported` is 15.1 — so CocoaPods refuses the pod until both are raised. In `ios/Podfile`:
 
    ```ruby
