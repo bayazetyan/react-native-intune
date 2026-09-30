@@ -157,6 +157,7 @@
         "reactNative": "0.87.1",
         "gradle": "9.4.1",
         "kotlin": "2.2.0",
+        "agp": "9.2.1",
         "java": "17",
         "date": "2026-09-30",
         "ran": "verify:bare: debug and release, rewrite confirmed"
