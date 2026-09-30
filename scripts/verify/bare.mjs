@@ -28,15 +28,13 @@ import path from 'node:path';
 
 import {
   assembleDebug,
+  edit,
   assembleRelease,
   capture,
   checkApplicationSource,
   checkMamReport,
-  edit,
   fail,
-  findFiles,
   installTarball,
-  installedModules,
   note,
   option,
   packTarball,
@@ -102,87 +100,18 @@ await verify('rni-bare-', async (dir) => {
   run('npm', ['install'], { cwd: app });
 
   const installed = installTarball(app, tarball, { ios });
-  const { transforms } = installedModules(installed);
-  const { signatureHash } = await installedModules(installed).checks();
 
   // ---------------------------------------------------------------- the setup pages
 
   say('Running setup');
-  // Exits non-zero while manual steps remain, by design — so a partial setup cannot be
-  // mistaken for a complete one. The manual steps follow.
-  tolerate('npx', ['react-native-intune', 'setup', '--yes', '--force'], {
-    cwd: app,
-  });
-
-  if (android) {
-    say('Applying the Android steps setup leaves to the developer');
-    // The page's precondition. Older templates ship 23 and MSAL requires 24; a newer
-    // template already has it, and this leaves it alone.
-    edit(path.join(app, 'android/build.gradle'), (s) =>
-      s.replace(/(minSdkVersion\s*=\s*)(\d+)/, (m, key, v) =>
-        Number(v) < 24 ? `${key}24` : m
-      )
-    );
-    const appGradle = path.join(app, 'android/app/build.gradle');
-    edit(appGradle, transforms.withMamPluginApplied);
-    edit(path.join(app, 'android/build.gradle'), transforms.withMamClasspath);
-
-    const [mainApplication] = findFiles(
-      path.join(app, 'android/app/src/main'),
-      (n) => /^MainApplication\.(kt|java)$/.test(n)
-    );
-    const language = mainApplication.endsWith('.kt') ? 'kt' : 'java';
-    edit(mainApplication, (s) => transforms.withMamApplication(s, language));
-
-    // The redirect activity takes the hash of the key the build is actually signed
-    // with — computed here from that keystore, the way doctor computes it, rather than
-    // assumed to be the template's.
-    const hash = signatureHash({
-      android: { debugKeystore: path.join(app, 'android/app/debug.keystore') },
-    });
-    if (!hash) {
-      fail('Could not read the signature hash from android/app/debug.keystore');
-    }
-    const applicationId = fs
-      .readFileSync(appGradle, 'utf8')
-      .match(/applicationId\s+["']([\w.]+)["']/)?.[1];
-    if (!applicationId) {
-      fail('No applicationId in android/app/build.gradle');
-    }
-    edit(path.join(app, 'android/app/src/main/AndroidManifest.xml'), (s) =>
-      s.replace(
-        /(\s*)<\/application>/,
-        `
-        <activity
-            android:name="com.microsoft.identity.client.BrowserTabActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="msauth"
-                    android:host="${applicationId}"
-                    android:path="/${hash}" />
-            </intent-filter>
-        </activity>$1</application>`
-      )
-    );
-    note(`${applicationId}, signature hash ${hash}`);
-  }
-
-  if (ios) {
-    say('Raising the iOS deployment target to 17.0');
-    edit(path.join(app, 'ios/Podfile'), (s) =>
-      s.replace(/^(\s*platform\s+:ios\s*,\s*).+$/m, "$1'17.0'")
-    );
-    edit(path.join(app, `ios/${NAME}.xcodeproj/project.pbxproj`), (s) =>
-      s.replace(
-        /IPHONEOS_DEPLOYMENT_TARGET = [\d.]+;/g,
-        'IPHONEOS_DEPLOYMENT_TARGET = 17.0;'
-      )
-    );
-  }
+  // Every step the setup pages describe, applied by the installed package's own setup.
+  // It exits non-zero while anything remains, so completeness is judged by doctor below
+  // rather than trusted from here.
+  process.stdout.write(
+    tolerate('npx', ['react-native-intune', 'setup', '--yes', '--force'], {
+      cwd: app,
+    })
+  );
 
   // ---------------------------------------------------------------- doctor
 
@@ -192,21 +121,20 @@ await verify('rni-bare-', async (dir) => {
   );
   const wanted = report.results.filter(
     (r) =>
-      (android && r.platform === 'android') ||
-      (ios && r.id === 'ios-deployment-target')
+      (android && r.platform === 'android') || (ios && r.platform === 'ios')
   );
   for (const r of wanted) {
     note(`${r.state.padEnd(8)} ${r.id}${r.detail ? `  (${r.detail})` : ''}`);
   }
   // Advisories do not fail the exit code by design, so they do not fail this either.
   const failing = wanted.filter(
-    (r) => r.state !== 'ok' && r.severity !== 'advisory'
+    (r) => r.state !== 'ok' && r.state !== 'skip' && r.severity !== 'advisory'
   );
   if (failing.length > 0) {
     fail(
-      'doctor still reports, after every step the setup pages describe:\n  ' +
+      'doctor still reports, after setup:\n  ' +
         failing.map((r) => `${r.id}: ${r.state}`).join('\n  ') +
-        '\nEither a page is missing a step or doctor is checking the wrong thing.'
+        '\nEither setup is missing an edit or doctor is checking the wrong thing.'
     );
   }
 
@@ -222,6 +150,28 @@ await verify('rni-bare-', async (dir) => {
   // ---------------------------------------------------------------- ios
 
   if (ios) {
+    const [major, minor] = RN_VERSION.split('.').map(Number);
+    if (major === 0 && minor < 76) {
+      // React Native's own requirement, not this library's: its 0.74 and 0.75 pods declare
+      // iOS 13.4, and Xcode 27 builds nothing below 15.0. Any 0.74 app needs this on
+      // Xcode 27, with or without Intune — so it is applied here, said out loud, and kept
+      // out of setup.
+      say(
+        'Raising the pods\u2019 deployment target for Xcode 27 (React Native, not Intune)'
+      );
+      edit(path.join(app, 'ios/Podfile'), (src) =>
+        src.replace(
+          /(\n\s*react_native_post_install\([\s\S]*?\n\s*\)\n)/,
+          `$1    installer.pods_project.targets.each do |t|
+      t.build_configurations.each do |c|
+        c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0' if c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
+      end
+    end
+`
+        )
+      );
+    }
+
     say('pod install');
     // CocoaPods dies with an encoding error that hides the real one without a UTF-8
     // locale, which a non-interactive shell does not always have.
