@@ -320,3 +320,76 @@ describe('ios-deployment-target', () => {
     ).toBe('wrong');
   });
 });
+
+describe('android-toolchain', () => {
+  /** A project whose versions live where React Native's templates put them. */
+  const toolchain = ({ gradle, agp, kotlin, rn }) => {
+    const root = fs.mkdtempSync(path.join(dir, 'tc-'));
+    const put = (name, contents) => {
+      const file = path.join(root, name);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, contents);
+      return file;
+    };
+    put(
+      'android/gradle/wrapper/gradle-wrapper.properties',
+      `distributionUrl=https\\://services.gradle.org/distributions/gradle-${gradle}-bin.zip\n`
+    );
+    put(
+      'node_modules/react-native/gradle/libs.versions.toml',
+      `[versions]\nagp = "${agp}"\nkotlin = "${kotlin}"\n`
+    );
+    put(
+      'node_modules/react-native/package.json',
+      JSON.stringify({ version: rn })
+    );
+    return checks
+      .find((c) => c.id === 'android-toolchain')
+      .inspect({
+        root,
+        android: {
+          dir: path.join(root, 'android'),
+          rootBuildGradle: put(
+            'android/build.gradle',
+            'buildscript { dependencies { classpath("com.android.tools.build:gradle") } }\n'
+          ),
+        },
+      });
+  };
+
+  it("passes Microsoft's row", () => {
+    const result = toolchain({
+      gradle: '8.11.1',
+      agp: '8.9.1',
+      kotlin: '2.1.21',
+      rn: '0.80.0',
+    });
+    expect(result.state).toBe('ok');
+    expect(result.detail).toContain("Microsoft's tested row");
+  });
+
+  /** Reading AGP and Kotlin from React Native's catalog is what makes this possible. */
+  it('passes a combination this project verified, and says whose claim it is', () => {
+    const result = toolchain({
+      gradle: '9.3.1',
+      agp: '8.12.0',
+      kotlin: '2.1.20',
+      rn: '0.86.3',
+    });
+    expect(result.state).toBe('ok');
+    expect(result.detail).toContain('not by Microsoft');
+    // The row for the project's own React Native version, not the first to share Gradle.
+    expect(result.detail).toContain('0.86.3');
+  });
+
+  it('flags a combination nobody has run', () => {
+    const result = toolchain({
+      gradle: '9.3.1',
+      agp: '8.12.0',
+      kotlin: '2.3.0',
+      rn: '0.90.0',
+    });
+    expect(result.state).toBe('wrong');
+    expect(result.detail).toContain('kotlin 2.3.0');
+  });
+});

@@ -74,7 +74,7 @@ responsibility**:
 |---|---|
 | React Native | 0.74+, **New Architecture required** |
 | iOS | **17.0+, Xcode 26+** — MAM SDK 21.x is built against them |
-| Android | minSdk 24, Java 17, Gradle 8.11.1 / AGP 8.9.1 / Kotlin 2.1.21 |
+| Android | minSdk 24, Java 17 — Gradle, AGP and Kotlin on Microsoft's tested row or one verified here; `doctor` says which |
 | On the device | Company Portal on Android; Authenticator or Company Portal on iOS |
 | In the tenant | An Entra app registration with the Intune MAM API permission granted |
 

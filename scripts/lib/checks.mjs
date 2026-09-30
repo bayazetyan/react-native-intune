@@ -386,7 +386,7 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
   {
     id: 'android-toolchain',
     platform: 'android',
-    title: 'App toolchain on the MAM compatibility matrix row',
+    title: 'App toolchain is a tested combination',
     /**
      * Advisory, and deliberately so. Mixing matrix rows is *untested* by Microsoft, not
      * known-broken — plenty of combinations work. But when one does not, the failure lands
@@ -421,26 +421,63 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
           firstMatch(src, /kotlinVersion["' ]*[:=]["' ]*([\d.]+)/),
         gradle: gradleWrapperVersion(project),
       };
+      // React Native's templates leave AGP and Kotlin to React Native's own version
+      // catalog — `classpath("com.android.tools.build:gradle")` with no version, which
+      // the React Native Gradle plugin resolves from it. So that catalog is where the
+      // versions the app actually builds with are written.
+      const catalog = read(
+        path.join(project.root, 'node_modules/react-native/gradle/libs.versions.toml')
+      );
+      found.agp ||= firstMatch(catalog, /^agp\s*=\s*"([\d.]+)"/m);
+      found.kotlin ||= firstMatch(catalog, /^kotlin\s*=\s*"([\d.]+)"/m);
+      const rn = (() => {
+        try {
+          return JSON.parse(
+            read(path.join(project.root, 'node_modules/react-native/package.json')) || '{}'
+          ).version;
+        } catch {
+          return undefined;
+        }
+      })();
 
-      const mismatched = Object.entries(REQUIRED_TOOLCHAIN)
-        .filter(([k]) => found[k])
-        .filter(([k, want]) => found[k] !== want)
-        .map(([k, want]) => `${k} ${found[k]} vs ${want}`);
-
-      const unseen = Object.keys(REQUIRED_TOOLCHAIN).filter((k) => !found[k]);
-
-      if (mismatched.length > 0) {
-        return { state: 'wrong', detail: mismatched.join(', ') };
-      }
-      if (unseen.length === Object.keys(REQUIRED_TOOLCHAIN).length) {
+      const seen = Object.keys(REQUIRED_TOOLCHAIN).filter((k) => found[k]);
+      if (seen.length === 0) {
         return {
           state: 'unknown',
           detail: 'could not read any version from the build files',
         };
       }
+      const unread = Object.keys(REQUIRED_TOOLCHAIN).filter((k) => !found[k]);
+      const partly = unread.length > 0 ? `; ${unread.join(', ')} not read` : '';
+      const agrees = (row) =>
+        seen.every((k) => row[k] === undefined || row[k] === found[k]) &&
+        seen.some((k) => row[k] !== undefined);
+
+      if (agrees(REQUIRED_TOOLCHAIN)) {
+        return { state: 'ok', detail: `on Microsoft's tested row${partly}` };
+      }
+      // Off Microsoft's row, but a combination this project has built and run — which is
+      // worth saying so, and worth saying whose claim it is.
+      // The row for this project's own React Native version first, so a report names the
+      // combination that was actually built rather than one that happens to share a
+      // Gradle version.
+      const candidates = VERIFIED_TOOLCHAINS.filter(agrees);
+      const ours =
+        candidates.find((v) => rn && String(v.reactNative).includes(rn)) ?? candidates[0];
+      if (ours) {
+        return {
+          state: 'ok',
+          detail:
+            `${seen.map((k) => `${k} ${found[k]}`).join(', ')} — verified by this project ` +
+            `on ${ours.date} (React Native ${ours.reactNative}), not by Microsoft${partly}`,
+        };
+      }
       return {
-        state: 'ok',
-        detail: unseen.length > 0 ? `${unseen.join(', ')} not read` : undefined,
+        state: 'wrong',
+        detail:
+          seen.map((k) => `${k} ${found[k]}`).join(', ') +
+          ' — neither Microsoft\u2019s row nor a combination verified here' +
+          partly,
       };
     },
     why:
@@ -449,15 +486,20 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
       'rewrites bytecode in your app module, so when a mixed row does fail it fails ' +
       'inside javassist and the error names one of your classes, never a version.',
     instruction: () =>
-      `The row this library is pinned to:
+      `Microsoft's tested row for the pinned MAM SDK:
 
-    Gradle  ${REQUIRED_TOOLCHAIN.gradle}
-    AGP     ${REQUIRED_TOOLCHAIN.agp}
-    Kotlin  ${REQUIRED_TOOLCHAIN.kotlin}
-    Java    17
+    Gradle ${REQUIRED_TOOLCHAIN.gradle}   AGP ${REQUIRED_TOOLCHAIN.agp}   Kotlin ${REQUIRED_TOOLCHAIN.kotlin}   Java 17
 
-Matching it exactly is the tested path. If your app cannot move, the alternative is
-pinning an older MAM SDK whose row you do match — see sdk-versions.json.`,
+  Built and run by this project, off that row:
+
+${VERIFIED_TOOLCHAINS.map(
+  (v) =>
+    `    Gradle ${v.gradle}${v.agp ? `   AGP ${v.agp}` : ''}   Kotlin ${v.kotlin}   ` +
+    `(React Native ${v.reactNative}, ${v.date})`
+).join('\n')}
+
+  Anything else is untested rather than broken. If a build fails inside the MAM plugin
+  with an error naming one of your classes, move to one of these first.`,
   },
 ];
 
@@ -940,16 +982,27 @@ export function signatureHash(project) {
  * there is one copy. Duplicating it here is how the two drift and the check starts
  * reporting a row nobody targets.
  */
-const REQUIRED_TOOLCHAIN = (() => {
+const TOOLCHAIN = (() => {
   try {
     const url = new URL('../../sdk-versions.json', import.meta.url);
-    const { toolchain } = JSON.parse(fs.readFileSync(url, 'utf8'));
-    const { requires } = toolchain;
-    return { gradle: requires.gradle, agp: requires.agp, kotlin: requires.kotlin };
+    return JSON.parse(fs.readFileSync(url, 'utf8')).toolchain ?? {};
   } catch {
     return {};
   }
 })();
+const REQUIRED_TOOLCHAIN = TOOLCHAIN.requires
+  ? {
+      gradle: TOOLCHAIN.requires.gradle,
+      agp: TOOLCHAIN.requires.agp,
+      kotlin: TOOLCHAIN.requires.kotlin,
+    }
+  : {};
+
+/**
+ * Combinations this project has built and run itself, off Microsoft's row — see the
+ * comment in sdk-versions.json for what qualifies one.
+ */
+const VERIFIED_TOOLCHAINS = TOOLCHAIN.verified ?? [];
 
 function firstMatch(src, re) {
   const m = src.match(re);
