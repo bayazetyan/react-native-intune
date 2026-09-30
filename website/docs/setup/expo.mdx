@@ -147,6 +147,7 @@ library; set it with `expo-build-properties`:
 |---|---|
 | Entitlements | Keychain sharing groups, in the required order, preserving any you already had |
 | `Info.plist` | The `msauth.…` URL type, broker query schemes, removal of the three `ADAL*` identity keys, and the two plist-only settings above |
+| `AppDelegate` | Forwards the sign-in redirect to MSAL from the open-URL handler. Without it the broker's reply reaches the app and is dropped, and sign-in never completes |
 | `AndroidManifest.xml` | Broker `<queries>`, and the MSAL `BrowserTabActivity` |
 | `android/app/build.gradle` | The MAM Gradle plugin, applied to your app module |
 | `android/build.gradle` | The plugin jar and javassist on the buildscript classpath |
