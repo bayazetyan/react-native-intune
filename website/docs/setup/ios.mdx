@@ -11,7 +11,17 @@ Three of these steps fail **silently** when missed: the app builds, runs, and lo
 :::
 
 
-1. `cd ios && pod install`
+1. **Raise the deployment target to 17.0, then `pod install`.** MAM SDK 21.x is built for iOS 17.0 (`minos 17.0`, read from the binary), and React Native's template targets lower — `min_ios_version_supported` is 15.1 — so CocoaPods refuses the pod until both are raised. In `ios/Podfile`:
+
+   ```ruby
+   platform :ios, '17.0'
+   ```
+
+   and in Xcode, your app target's *Minimum Deployments* (`IPHONEOS_DEPLOYMENT_TARGET`) to 17.0. Then:
+
+   ```bash
+   cd ios && pod install
+   ```
 
 2. **Keychain sharing — this is for the SDK, not for your app's data.** The two Microsoft groups exist because token and policy state is shared between separate processes: the broker (Authenticator / Company Portal) writes a token and the SDK inside your process reads it. iOS isolates the keychain per app, so an access group is the only way that hand-off works.
 

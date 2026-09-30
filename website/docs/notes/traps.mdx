@@ -69,6 +69,19 @@ broker detection reports "no broker" on a device that has one. MSAL's own
 `isRequiredBrokerPresent` uses the `//broker` host, which is how this was found.
 :::
 
+:::warning[The URL type without the AppDelegate forward drops the sign-in]
+The `msauth.…` URL type lets Authenticator or Company Portal open your app with the
+sign-in result. It does not hand that result to MSAL — the AppDelegate has to, with
+`MSALPublicClientApplication.handleMSALResponse` in its open-URL handler. Without it the
+broker finishes, your app comes to the front, and nothing happens: no error, no
+callback, a sign-in that never completes.
+
+It only shows through a broker. Without one installed, MSAL signs in through an
+in-app browser session that returns its result directly, so a test device with no
+Authenticator passes and the first user with one does not. This library's Expo plugin
+wrote the URL type and not the forward until it was run through Authenticator on an iPad.
+:::
+
 :::warning[A missing keychain group surfaces as an authorization error]
 Without `com.microsoft.adalcache` in the entitlements, the broker acquires a token the SDK
 cannot see. Enrollment then fails with "could not access the user's AAD token" even though
@@ -114,6 +127,18 @@ then rejects with `E_NOT_CONFIGURED`, which reads like a bug in the module. Call
 Roughly 90 seconds, on both platforms, and then nothing. The SDK skips accounts it has
 already registered without reporting anything. This library short-circuits it and returns
 immediately; if you call the SDK directly, check `enrolledAccountId` first.
+:::
+
+:::warning[A green debug build says nothing about release]
+Debug builds skip lintVital and minification, so a release can be broken while every
+debug build passes. This library shipped two versions that way: a clean
+`:app:assembleRelease` failed in every consumer app at `lintVitalAnalyzeRelease`, on a
+missing `local_aar_for_lint/release/out.aar`, because a workaround here disabled the task
+that produces it. The example app hid it for three weeks by keeping an `out.aar` from
+before the workaround in its build directory.
+
+Build release from a clean state before calling anything verified. The verification
+scripts in this repository now do that on every run.
 :::
 
 :::warning[A minified release build fails on classes you never referenced]

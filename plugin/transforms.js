@@ -187,9 +187,55 @@ function addImports(contents, imports) {
   return `${contents.slice(0, at)}\n${missing.join('\n')}${contents.slice(at)}`;
 }
 
+/**
+ * Forwards the sign-in redirect to MSAL from the generated AppDelegate.
+ *
+ * The URL type alone is not enough. When the broker — Authenticator or Company Portal —
+ * finishes, it opens the app with the result, and unless the AppDelegate hands that URL
+ * to MSAL it arrives and is dropped: the sign-in never completes and nothing reports
+ * why. Both halves were needed on a device, and the bare example has always had this
+ * one; the Expo plugin wrote the URL type and not the forward.
+ *
+ * MSAL goes first in the `||` chain, so a redirect meant for it is consumed before
+ * Linking sees it; any other URL falls through unchanged.
+ *
+ * Returns null when there is no `open url` handler to extend — a warning beats an
+ * AppDelegate edited in the wrong place.
+ */
+function withMsalResponseHandler(contents, language) {
+  if (/handleMSALResponse/.test(contents)) {
+    return contents;
+  }
+  const isSwift = language === 'swift';
+
+  const handler = isSwift
+    ? /(func\s+application\s*\(\s*_\s+\w+\s*:\s*UIApplication\s*,\s*open\s+url\s*:\s*URL\s*,\s*options\s*:[^)]*\)\s*->\s*Bool\s*\{\s*\n(\s*)return\s+)/
+    : /(-\s*\(BOOL\)\s*application\s*:\s*\(UIApplication\s*\*\)\s*\w+\s+openURL\s*:\s*\(NSURL\s*\*\)\s*url\s+options\s*:[^{]*\{\s*\n(\s*)return\s+)/;
+  if (!handler.test(contents)) {
+    return null;
+  }
+  const forward = isSwift
+    ? 'MSALPublicClientApplication.handleMSALResponse(url, sourceApplication: options[.sourceApplication] as? String) || '
+    : '[MSALPublicClientApplication handleMSALResponse:url sourceApplication:options[UIApplicationOpenURLOptionsSourceApplicationKey]] || ';
+  let next = contents.replace(handler, `$1${forward}`);
+
+  const importLine = isSwift ? 'import MSAL' : '#import <MSAL/MSAL.h>';
+  const imports = isSwift
+    ? /^(?:\w+\s+)?import\s+\w+.*$/gm
+    : /^#import\s+.*$/gm;
+  const lastImport = [...next.matchAll(imports)].pop();
+  if (!lastImport) {
+    return null;
+  }
+  const at = lastImport.index + lastImport[0].length;
+  next = `${next.slice(0, at)}\n${importLine}${next.slice(at)}`;
+  return next;
+}
+
 module.exports = {
   MARKER,
   withMamPluginApplied,
   withMamClasspath,
   withMamApplication,
+  withMsalResponseHandler,
 };

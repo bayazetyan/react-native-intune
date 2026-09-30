@@ -4,7 +4,7 @@ title: doctor and setup
 sidebar_position: 3
 ---
 
-`doctor` reports what your project still needs and changes nothing. `setup` applies the parts that are identical in every project. Neither runs on install, and the reason is worth reading before you wonder why.
+`doctor` reports what your project still needs and changes nothing. `setup` applies what it safely can and tells you the rest. Neither runs on install, and the reason is worth reading before you wonder why.
 
 **Bare React Native:** two commands, then a short manual remainder.
 
@@ -13,7 +13,7 @@ npx react-native-intune doctor   # reports what is missing, changes nothing
 npx react-native-intune setup    # applies what can be applied, shows a diff first
 ```
 
-`setup` handles the parts that are identical in every project: the Gradle plugin, broker `<queries>`, keychain groups, Xcode build settings, the configurator build phase. It **cannot** do two things, because they depend on your project or your signing key, and it will tell you so and exit non-zero:
+`setup` applies what it can write safely into any project — today that is the broker `<queries>` block in `AndroidManifest.xml`. Everything else it reports, with the exact change to make, and exits non-zero while any of it remains, so a partial setup cannot be mistaken for a complete one. Two of those depend on your project or your signing key and will always be manual:
 
 - the `BrowserTabActivity` redirect, which needs your keystore's signature hash
 - registering the auth callback in your `Application` class's `onCreate`

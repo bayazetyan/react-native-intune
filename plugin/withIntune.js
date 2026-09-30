@@ -37,6 +37,7 @@ const {
   createRunOncePlugin,
   withAndroidManifest,
   withAppBuildGradle,
+  withAppDelegate,
   withEntitlementsPlist,
   withInfoPlist,
   withMainApplication,
@@ -48,6 +49,7 @@ const {
   withMamApplication,
   withMamClasspath,
   withMamPluginApplied,
+  withMsalResponseHandler,
 } = require('./transforms');
 
 const pkg = require('../package.json');
@@ -166,6 +168,30 @@ const withMsalUrlScheme = (config, { maxFileProtectionLevel, keychainGroup }) =>
         };
       }
     }
+    return c;
+  });
+
+/**
+ * The other half of the URL type. Without it the broker's redirect reaches the app and
+ * is dropped, and sign-in never completes — see withMsalResponseHandler.
+ */
+const withMsalRedirectForward = (config) =>
+  withAppDelegate(config, (c) => {
+    const result = withMsalResponseHandler(
+      c.modResults.contents,
+      c.modResults.language
+    );
+    if (result === null) {
+      WarningAggregator.addWarningIOS(
+        MARKER,
+        'Could not forward the MSAL redirect in AppDelegate — no open-URL handler ' +
+          'was recognised. Sign-in through Authenticator or Company Portal will not ' +
+          'return to the app until this is done by hand. Run ' +
+          '`npx react-native-intune doctor` for the exact change.'
+      );
+      return c;
+    }
+    c.modResults.contents = result;
     return c;
   });
 
@@ -305,6 +331,7 @@ const withIntune = (config, props = {}) => {
   let next = config;
   next = withKeychainGroups(next, { keychainGroup });
   next = withMsalUrlScheme(next, { maxFileProtectionLevel, keychainGroup });
+  next = withMsalRedirectForward(next);
   next = withBrokerQueries(next);
   next = withRedirectActivity(next, { androidSignatureHash });
   next = withGradle(next);

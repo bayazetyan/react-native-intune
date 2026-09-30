@@ -93,33 +93,54 @@ gradle.taskGraph.whenReady { graph ->
 }
 
 /**
- * Disable AAR packaging for this library, with a message that says why.
+ * The MAM SDK is resolved through a repository rather than as a file.
  *
- * `./gradlew assembleDebug` from a consumer's android/ directory assembles every module,
- * including this one, and `:react-native-intune:bundleDebugAar` then fails with "Direct
- * local .aar file dependencies are not supported when building an AAR". People run that
- * command, and the error names our library, so it reads as our bug.
+ * `implementation files(mamAar)` is what Microsoft's guide shows for an *app* module, and
+ * in a *library* module AGP rejects it wherever it has to package the library: "Direct
+ * local .aar file dependencies are not supported when building an AAR". This used to be
+ * worked around by disabling the bundle tasks by name, and that could not be made right
+ * across AGP versions — the lint AAR an app's `lintVitalAnalyzeRelease` consumes is built
+ * by one of those tasks. Disabling it broke every clean release build on AGP 8.12;
+ * leaving it enabled breaks the same build on the AGP of React Native 0.74, which applies
+ * the local-.aar rule to the lint AAR too.
  *
- * It is not a workaround for a problem we could otherwise solve. AGP's own message says
- * the AAR "would be broken because the classes and Android resources from any local .aar
- * file dependencies would not be packaged" — so the output being skipped is an output
- * that could never have been correct. The MAM SDK is distributed as a file from
- * Microsoft's GitHub, not from Maven Central, so there is no coordinate to depend on
- * instead.
+ * Resolved from a repository, the SDK is an ordinary module dependency and AGP stops
+ * treating this library as a special case anywhere.
  *
- * Nothing is lost: autolinking consumes this library as a Gradle *project*, so its AAR is
- * never built for a consumer. `:app:assembleDebug` was always the working form; now the
- * root form works too.
+ * An Ivy repository with an `[artifact].[ext]` pattern, because it points at the file
+ * fetch-sdks already wrote, under the exact name Microsoft distributes —
+ * `Microsoft.Intune.MAM.SDK.aar` — with nothing copied or renamed and no metadata to
+ * generate. A flat directory would do the same and prints "should be avoided because it
+ * doesn't support any meta-data formats" on every consumer's build, naming this library.
+ * The version in the coordinate is not in the pattern, so it is informational: the pin in
+ * sdk-versions.json, the one fetch-sdks downloaded.
+ *
+ * The repository has to be visible to the app, not only to this project: the app resolves
+ * its runtime classpath with its own repositories, so a repository declared here alone
+ * would fail there. It is added to every project and made exclusive to the one module, so
+ * nothing else is ever looked up in it and this module is never looked up anywhere else.
  */
-tasks.configureEach { task ->
-  if (task.name ==~ /bundle.*Aar/) {
-    task.enabled = false
-    task.doFirst {
-      logger.lifecycle(
-        "[react-native-intune] Skipping ${task.name}: this library depends on the MAM " +
-        "SDK as a local .aar, so AGP cannot package a valid AAR for it. Consumers " +
-        "autolink it as a Gradle project and never need one."
-      )
+def mamVersion = new groovy.json.JsonSlurper()
+  .parse(file("$projectDir/../sdk-versions.json")).android.tag
+def mamRepoDir = mamAar.parentFile
+rootProject.allprojects {
+  repositories {
+    exclusiveContent {
+      forRepository {
+        ivy {
+          name = "react-native-intune-mam-sdk"
+          url = mamRepoDir.toURI()
+          patternLayout {
+            artifact "[artifact].[ext]"
+          }
+          metadataSources {
+            artifact()
+          }
+        }
+      }
+      filter {
+        includeModule("react-native-intune", "Microsoft.Intune.MAM.SDK")
+      }
     }
   }
 }
@@ -127,7 +148,7 @@ tasks.configureEach { task ->
 dependencies {
   implementation "com.facebook.react:react-android"
 
-  implementation files(mamAar)
+  implementation("react-native-intune:Microsoft.Intune.MAM.SDK:${mamVersion}@aar")
 
   // MSAL. Mirrored in sdk-versions.json -> toolchain.msal_android; change both together.
   //

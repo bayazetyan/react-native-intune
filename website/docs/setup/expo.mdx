@@ -17,8 +17,12 @@ every change runs `yarn verify:expo`, which prebuilds a real project from the pu
 tarball, builds it, and reads the MAM plugin's report to confirm the class was actually
 rewritten.
 
-What that still does not cover is enrollment from an EAS build on a device. If you hit
-something, an issue with the prebuild output attached is genuinely useful.
+Enrollment has been run from an Expo build on both platforms: an SDK 57 app prebuilt
+from the tarball and built in Release, installed on an iPad (iPadOS 26.6.1) and signed in
+through Microsoft Authenticator, and on a Pixel 6 (Android 17) signed in through Company
+Portal — enrolled against a real tenant each time. Not run yet: a build made by EAS
+rather than on a local machine. If you hit something, an issue with the prebuild output
+attached is genuinely useful.
 :::
 
 ```json title="app.json"
@@ -123,12 +127,31 @@ an Expo app could not use a custom group at all: it would fail with `E_PLIST_CON
 there would be nowhere to fix it.
 :::
 
+## iOS deployment target — set it yourself
+
+MAM SDK 21.x is built for iOS 17.0 (`minos 17.0`, read from the binary), and a new Expo
+project targets lower. Until it is raised, `pod install` refuses the pod. This plugin does
+not set it for you, because the value belongs to your whole app rather than to this
+library; set it with `expo-build-properties`:
+
+```json title="app.json"
+{
+  "expo": {
+    "plugins": [
+      ["expo-build-properties", { "ios": { "deploymentTarget": "17.0" } }],
+      ["react-native-intune", { "androidSignatureHash": "Xo8W…yr9iU=" }]
+    ]
+  }
+}
+```
+
 ## What the plugin does
 
 | File | Change |
 |---|---|
 | Entitlements | Keychain sharing groups, in the required order, preserving any you already had |
 | `Info.plist` | The `msauth.…` URL type, broker query schemes, removal of the three `ADAL*` identity keys, and the two plist-only settings above |
+| `AppDelegate` | Forwards the sign-in redirect to MSAL from the open-URL handler. Without it the broker's reply reaches the app and is dropped, and sign-in never completes |
 | `AndroidManifest.xml` | Broker `<queries>`, and the MSAL `BrowserTabActivity` |
 | `android/app/build.gradle` | The MAM Gradle plugin, applied to your app module |
 | `android/build.gradle` | The plugin jar and javassist on the buildscript classpath |

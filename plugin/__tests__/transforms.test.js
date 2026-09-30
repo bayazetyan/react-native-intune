@@ -3,6 +3,7 @@ const {
   withMamApplication,
   withMamClasspath,
   withMamPluginApplied,
+  withMsalResponseHandler,
 } = require('../transforms');
 
 /**
@@ -272,5 +273,88 @@ allprojects {
 
   it('returns null when there is no buildscript dependencies block to anchor on', () => {
     expect(withMamClasspath('allprojects { }\n')).toBeNull();
+  });
+});
+
+describe('withMsalResponseHandler', () => {
+  /** The open-URL handler of Expo SDK 57's generated AppDelegate.swift, verbatim. */
+  const SWIFT_APP_DELEGATE = `internal import Expo
+import React
+import ReactAppDependencyProvider
+
+@main
+class AppDelegate: ExpoAppDelegate {
+  // Linking API
+  public override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    return super.application(app, open: url, options: options) || RCTLinkingManager.application(app, open: url, options: options)
+  }
+}
+`;
+
+  /** The same handler in the Objective-C++ AppDelegate older Expo SDKs generate. */
+  const OBJC_APP_DELEGATE = `#import "AppDelegate.h"
+
+#import <React/RCTLinkingManager.h>
+
+@implementation AppDelegate
+
+- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
+  return [super application:application openURL:url options:options] || [RCTLinkingManager application:application openURL:url options:options];
+}
+
+@end
+`;
+
+  /**
+   * MSAL first, so a redirect meant for it is consumed before Linking sees it, and
+   * everything that was there before still runs for any other URL.
+   */
+  it('forwards to MSAL ahead of what the handler already did', () => {
+    const out = withMsalResponseHandler(SWIFT_APP_DELEGATE, 'swift');
+    expect(out).toContain('import MSAL');
+    expect(out).toContain(
+      'return MSALPublicClientApplication.handleMSALResponse(url, sourceApplication: options[.sourceApplication] as? String) || super.application(app, open: url, options: options) || RCTLinkingManager.application(app, open: url, options: options)'
+    );
+  });
+
+  it('puts the import with the other imports', () => {
+    const out = withMsalResponseHandler(SWIFT_APP_DELEGATE, 'swift');
+    expect(out.indexOf('import MSAL')).toBeGreaterThan(
+      out.indexOf('import ReactAppDependencyProvider')
+    );
+    expect(out.indexOf('import MSAL')).toBeLessThan(out.indexOf('@main'));
+  });
+
+  it('handles the Objective-C AppDelegate', () => {
+    const out = withMsalResponseHandler(OBJC_APP_DELEGATE, 'objcpp');
+    expect(out).toContain('#import <MSAL/MSAL.h>');
+    expect(out).toContain(
+      'return [MSALPublicClientApplication handleMSALResponse:url sourceApplication:options[UIApplicationOpenURLOptionsSourceApplicationKey]] || [super application:application openURL:url options:options]'
+    );
+  });
+
+  it('is idempotent', () => {
+    for (const [src, lang] of [
+      [SWIFT_APP_DELEGATE, 'swift'],
+      [OBJC_APP_DELEGATE, 'objcpp'],
+    ]) {
+      const once = withMsalResponseHandler(src, lang);
+      expect(withMsalResponseHandler(once, lang)).toBe(once);
+      expect(once.match(/handleMSALResponse/g)).toHaveLength(1);
+    }
+  });
+
+  /** Null, which becomes a warning, rather than a forward written somewhere it never runs. */
+  it('returns null when there is no open-URL handler to extend', () => {
+    const without = SWIFT_APP_DELEGATE.replace(
+      /\s*\/\/ Linking API[\s\S]*?\n {2}\}\n/,
+      '\n'
+    );
+    expect(without).not.toContain('open url');
+    expect(withMsalResponseHandler(without, 'swift')).toBeNull();
   });
 });

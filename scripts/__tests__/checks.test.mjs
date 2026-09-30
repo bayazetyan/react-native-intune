@@ -49,8 +49,18 @@ const project = (files) => {
       : write('MainApplication.kt', files.source);
   const gradle =
     files.gradle === undefined ? null : write('build.gradle', files.gradle);
+  const podfile =
+    files.podfile === undefined ? null : write('ios/Podfile', files.podfile);
+  if (files.podProps !== undefined) {
+    write('ios/Podfile.properties.json', files.podProps);
+  }
+  const pbxproj =
+    files.pbxproj === undefined
+      ? null
+      : write('ios/App.xcodeproj/project.pbxproj', files.pbxproj);
   return {
     root,
+    ios: { podfile, pbxproj },
     android: {
       applicationSources: source ? [source] : [],
       appBuildGradle: gradle,
@@ -196,5 +206,117 @@ describe('android-auth-callback', () => {
     expect(
       inspect('android-auth-callback', { source: KOTLIN_PLAIN }).state
     ).toBe('ok');
+  });
+});
+
+describe('ios-deployment-target', () => {
+  const target = (files) => inspect('ios-deployment-target', files);
+
+  /**
+   * A project.pbxproj in the shape Xcode writes: an application target and the project,
+   * each with a Debug and a Release configuration. `app` is the target's own setting —
+   * null when it sets none and inherits — and `project` the project-level one.
+   */
+  const pbx = ({ app, project }) => {
+    const id = (n) => `${n}`.padStart(24, '0');
+    const config = (n, name, value) =>
+      `\t\t${id(n)} /* ${name} */ = {\n\t\t\tisa = XCBuildConfiguration;\n` +
+      `\t\t\tbuildSettings = {\n` +
+      (value ? `\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = ${value};\n` : '') +
+      `\t\t\t};\n\t\t\tname = ${name};\n\t\t};\n`;
+    const list = (n, a, b) =>
+      `\t\t${id(n)} /* list */ = {\n\t\t\tisa = XCConfigurationList;\n` +
+      `\t\t\tbuildConfigurations = (\n\t\t\t\t${id(a)} /* Debug */,\n\t\t\t\t${id(b)} /* Release */,\n\t\t\t);\n\t\t};\n`;
+    return (
+      '// !$*UTF8*$!\n{\n\tobjects = {\n' +
+      `\t\t${id(1)} /* app */ = {\n\t\t\tisa = PBXNativeTarget;\n` +
+      `\t\t\tbuildConfigurationList = ${id(10)} /* list */;\n` +
+      '\t\t\tproductType = "com.apple.product-type.application";\n\t\t};\n' +
+      `\t\t${id(2)} /* Project object */ = {\n\t\t\tisa = PBXProject;\n` +
+      `\t\t\tbuildConfigurationList = ${id(11)} /* list */;\n\t\t};\n` +
+      config(20, 'Debug', app) +
+      config(21, 'Release', app) +
+      config(22, 'Debug', project) +
+      config(23, 'Release', project) +
+      list(10, 20, 21) +
+      list(11, 22, 23) +
+      '\t};\n}\n'
+    );
+  };
+  const PODFILE_17 = "platform :ios, '17.0'\n";
+
+  it('passes 17.0 in both the Podfile and the app target', () => {
+    expect(
+      target({
+        podfile: PODFILE_17,
+        pbxproj: pbx({ app: '17.0', project: '17.0' }),
+      }).state
+    ).toBe('ok');
+  });
+
+  /** React Native's own template. It fails at pod install, before anything else. */
+  it('fails the template minimum', () => {
+    const result = target({
+      podfile: 'platform :ios, min_ios_version_supported\n',
+      pbxproj: pbx({ app: null, project: '15.1' }),
+    });
+    expect(result.state).toBe('wrong');
+    expect(result.detail).toContain('min_ios_version_supported');
+  });
+
+  /**
+   * The one that gets through: pod install succeeds and the app builds, then crashes at
+   * launch on an iOS 16 device the app target still claims to support. Here the target
+   * sets nothing and inherits the project's value, which is how React Native's template
+   * is laid out.
+   */
+  it('fails a raised Podfile with the app target inheriting a lower project value', () => {
+    const result = target({
+      podfile: PODFILE_17,
+      pbxproj: pbx({ app: null, project: '15.1' }),
+    });
+    expect(result.state).toBe('wrong');
+    expect(result.detail).toContain('15.1 (Debug)');
+  });
+
+  it('fails an app target set lower than the project', () => {
+    expect(
+      target({
+        podfile: PODFILE_17,
+        pbxproj: pbx({ app: '15.1', project: '17.0' }),
+      }).state
+    ).toBe('wrong');
+  });
+
+  /**
+   * Expo's prebuild: expo-build-properties raises the app target to 17.0 and leaves the
+   * project level at 16.4. The app builds for 17.0. Counting every value in the file
+   * reported this as wrong on a real Expo project.
+   */
+  it('passes an app target that overrides a lower project-level default', () => {
+    const podfile =
+      "platform :ios, podfile_properties['ios.deploymentTarget'] || '16.4'\n";
+    expect(
+      target({
+        podfile,
+        podProps: '{"ios.deploymentTarget":"17.0"}',
+        pbxproj: pbx({ app: '17.0', project: '16.4' }),
+      }).state
+    ).toBe('ok');
+    expect(
+      target({
+        podfile,
+        podProps: '{}',
+        pbxproj: pbx({ app: '17.0', project: '16.4' }),
+      }).state
+    ).toBe('wrong');
+  });
+
+  it('ignores a commented-out platform line', () => {
+    const podfile =
+      "# platform :ios, '17.0'\nplatform :ios, min_ios_version_supported\n";
+    expect(
+      target({ podfile, pbxproj: pbx({ app: '17.0', project: '17.0' }) }).state
+    ).toBe('wrong');
   });
 });
