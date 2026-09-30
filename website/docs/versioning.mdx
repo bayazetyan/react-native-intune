@@ -88,7 +88,7 @@ issue in this repository with the release notes and what a bump has to change.
 |---|---|
 | React Native | 0.74 and later, New Architecture |
 | Expo | SDK 54 and later — `@expo/config-plugins` 54 and later |
-| iOS | 17.0 and later, Xcode 26 and later — built and enrolled with Xcode 26.6 and 27.0 |
+| iOS | 17.0 and later, Xcode 26 |
 | Android | minSdk 24, Java 17 |
 
 These are the ranges this library has been **built and run** on, not the ranges it is
@@ -98,6 +98,15 @@ left to find out. Expo SDK 54 through 57 each build, debug and release, with the
 rewrite confirmed; enrollment on a device has been run on SDK 57. Both ends of the React Native range are built from a fresh project
 before a release — `yarn verify:bare --rn <version>` in this repository. That cannot run in
 CI: it needs Microsoft's SDK, which may not be redistributed.
+
+:::warning[Xcode 27 is not supported yet — by Microsoft]
+Microsoft states that linking Intune App SDK 21.x and compiling with Xcode 27 is
+unsupported, and that Xcode 27 support comes with SDK 22.x
+([announcement](https://github.com/microsoftconnect/ms-intune-app-sdk-ios/discussions/676)).
+This library pins 21.x, so build with Xcode 26 for anything you ship. Builds and an
+enrollment on an iPad did work with Xcode 27.0 here — a data point, not support. Moving
+to 22.x will be a major version of this library, because it raises the Xcode minimum.
+:::
 
 :::info[React Native 0.74 and 0.75 on Xcode 27]
 Their own pods declare iOS 13.4, and Xcode 27 builds nothing below 15.0, so the app fails
