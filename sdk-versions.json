@@ -10,7 +10,7 @@
   ],
   "ios": {
     "repo": "microsoftconnect/ms-intune-app-sdk-ios",
-    "tag": "21.8.0",
+    "tag": "21.9.0",
     "requires": {
       "ios": "17.0",
       "xcode": "26"
@@ -101,7 +101,7 @@
       "msal_android has no requirement from Microsoft to satisfy. The Android SDK guide says",
       "only \"integrate MSAL\" and links the MSAL repository, unlike iOS where the coupling is",
       "hard. So this is our choice, pinned for reproducibility rather than compatibility:",
-      "8.4.2, the current stable, released 2026-08-21.",
+      "8.5.0, released 2026-09-16 with a fix for CVE-2026-54399 in Apache HttpCore.",
       "",
       "msal_ios is exact, not a range: the Intune SDK does not carry its own MSAL, it drives",
       "the app's. Two consumers on different MSALs is the same hazard pinning the Intune SDK",
@@ -117,8 +117,8 @@
       "any AGP works. Add a row by running verify:bare or verify:expo, never by reasoning."
     ],
     "javassist": "3.29.2-GA",
-    "msal_ios": "2.15.0",
-    "msal_android": "8.4.2",
+    "msal_ios": "2.16.0",
+    "msal_android": "8.5.0",
     "requires": {
       "android": "16",
       "gradle": "8.11.1",

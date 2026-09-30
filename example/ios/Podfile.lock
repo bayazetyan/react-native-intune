@@ -3,9 +3,9 @@ PODS:
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
   - hermes-engine/Pre-built (250829098.0.10)
-  - MSAL (2.15.0):
-    - MSAL/app-lib (= 2.15.0)
-  - MSAL/app-lib (2.15.0)
+  - MSAL (2.16.0):
+    - MSAL/app-lib (= 2.16.0)
+  - MSAL/app-lib (2.16.0)
   - RCTDeprecation (0.85.0)
   - RCTRequired (0.85.0)
   - RCTSwiftUI (0.85.0)
@@ -1750,9 +1750,9 @@ PODS:
     - React-utils (= 0.85.0)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.85.0)
-  - RNIntune (0.1.0):
+  - RNIntune (0.1.2):
     - hermes-engine
-    - MSAL (= 2.15.0)
+    - MSAL (= 2.16.0)
     - RCTRequired
     - RCTTypeSafety
     - React-Core
@@ -2010,7 +2010,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   FBLazyVector: c00c20551d40126351a6783c47ce75f5b374851b
   hermes-engine: 4d95a87c406d69db26da747157025e1ef1b135fa
-  MSAL: dc3431b88df557da342e1eb2bd6f05102bddf6ac
+  MSAL: 7abbdfa5b382998c4f41b8c2d6c7517d8460ce35
   RCTDeprecation: 3bb167081b134461cfeb875ff7ae1945f8635257
   RCTRequired: 74839f55d5058a133a0bc4569b0afec750957f64
   RCTSwiftUI: 87a316382f3eab4dd13d2a0d0fd2adcce917361a
@@ -2081,9 +2081,9 @@ SPEC CHECKSUMS:
   ReactCodegen: ab01ebfffac5cda9140204eb872ed97c15df225f
   ReactCommon: 47ef95b0920948a0b54d7439f7452501eeeac071
   ReactNativeDependencies: fd5cc31714edfcb5c60c5ef6cdaf3a1b4d736e12
-  RNIntune: 8cef52ad3a8fbf67a6fa556d873801756c6d640d
-  Yoga: cc155241ea30670878e270d52d74cf29487c4bbb
+  RNIntune: 3b6ef08e1ea1c34d9141fa9227de59de9c488423
+  Yoga: e83c3121d079541e69f3c5c623faaaf933fb5812
 
-PODFILE CHECKSUM: 0f0568f6b4af76a4ee976537722c5fa09a135cf2
+PODFILE CHECKSUM: ef6a6b43db39643611d5760d4bceca7f2e337a58
 
 COCOAPODS: 1.15.2

@@ -167,7 +167,7 @@ dependencies {
   //
   // [verify] whether MSAL degrades cleanly without it, or throws at sign-in on a real
   // device. If it throws, the fallback is documenting the feed for consumers.
-  implementation("com.microsoft.identity.client:msal:8.4.2") {
+  implementation("com.microsoft.identity.client:msal:8.5.0") {
     exclude group: "com.microsoft.device.display"
   }
 }
