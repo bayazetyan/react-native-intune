@@ -55,7 +55,8 @@ bundles, show them to an engineer — do not branch on them.
 | `EnrollmentResult.nativeCode` and `nativeMessage` | They are the SDK's own constant names and debug strings, and change when Microsoft's SDK does. |
 | `PolicySnapshot.raw` | Everything the SDK reports beyond the typed fields. Anything worth depending on gets promoted to a typed field first. |
 | The keys of `getDiagnostics()` | An opaque support bundle; its contents follow whatever is useful to diagnose. |
-| `resolveToken`, `rejectToken` | Present in the native spec, but not public API. `setTokenProvider` wraps them. |
+| `authMode: 'external'`, `setTokenProvider` | An app bringing its own MSAL. Kept working in the code, but not yet run on a device against a tenant, so undocumented until it is — planned for 2.0. |
+| `resolveToken`, `rejectToken` | Present in the native spec, but not public API. |
 
 `IntuneState.registeredAccountIds` is an array because it reports what the SDK reports.
 With one identity per installation — a fixed constraint of this library — it holds zero

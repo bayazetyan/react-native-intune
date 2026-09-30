@@ -84,9 +84,14 @@ export type ResetReason =
   | 'resume';
 
 /**
- * Who owns MSAL. `builtin` is the module (SPEC §3.1) and the default. `external` is for
- * apps that already have their own MSAL and supply MAM tokens via `setTokenProvider`;
- * it is a supported mode, not a documentation fallback.
+ * Who owns MSAL. `'builtin'` — the module — is the default and the only mode supported
+ * in 1.x.
+ *
+ * `'external'` is for apps that already have their own MSAL and answer the SDK's token
+ * requests themselves.
+ * **Not supported in 1.x.** `authMode: 'external'` is kept working in the code, but it has
+ * not been run on a device against a tenant, so it is undocumented and outside the semver
+ * contract — it may change in any release. It is planned for 2.0.
  */
 export type AuthMode = 'builtin' | 'external';
 
@@ -101,7 +106,7 @@ export type IntuneConfig = {
   authority: string;
   /** Must match the platform format — see the README. */
   redirectUri: string;
-  /** Default `'builtin'`. */
+  /** Default `'builtin'`, and the only value supported in 1.x. */
   authMode?: AuthMode;
   /** Default `false`. */
   verboseLogging?: boolean;
@@ -180,7 +185,10 @@ export type EnrollParams = {
   /** Entra object ID. Never a UPN — that is what `upn` below is for. */
   accountId: string;
   /**
-   * **Android, `authMode: 'external'` only.** `registerAccountForMAM` takes the UPN as
+   * @internal
+   *
+   * **Android, `authMode: 'external'` only** — outside the contract in 1.x, see `AuthMode`.
+   * `registerAccountForMAM` takes the UPN as
    * well as the object ID and will not accept null for it, and in `external` mode the
    * module has no MSAL cache to resolve one from.
    *
@@ -320,7 +328,11 @@ export type Diagnostics = Record<string, string>;
 
 // ---------------------------------------------------------------- events
 
-/** Payload of a native-initiated MAM service token request. See SPEC §13.4. */
+/**
+ * Payload of a native-initiated MAM service token request, for `authMode: 'external'`.
+ *
+ * @internal Outside the contract in 1.x — see `AuthMode`.
+ */
 export type TokenRequest = {
   resourceId: string;
   tenantId: string;
@@ -331,6 +343,8 @@ export type TokenRequest = {
 /**
  * Return the access token, or `null` to signal "cannot get a token right now". Runs on a
  * background thread's behalf, and the SDK may ask with no JS call in flight.
+ *
+ * @internal Outside the contract in 1.x — see `AuthMode`.
  */
 export type TokenProvider = (
   request: TokenRequest
@@ -367,6 +381,7 @@ export type IntuneEvents = {
   unenrollmentResult: EnrollmentResult;
   wipeRequested: WipeRequest;
   restartRequired: RestartRequest;
+  /** @internal The `external` token bridge — outside the contract in 1.x. */
   tokenRequest: TokenRequest & { requestId: string };
   brokerStatusChanged: BrokerStatus;
 };
@@ -389,6 +404,7 @@ export type IntuneErrorCode =
   | 'E_SDK_UNAVAILABLE'
   | 'E_BROKER_MISSING'
   | 'E_INVALID_ACCOUNT_ID'
+  // The next three are reached only with authMode 'external', outside the contract in 1.x.
   | 'E_TOKEN_PROVIDER_FAILED'
   | 'E_TOKEN_PROVIDER_MISSING'
   | 'E_EXTERNAL_AUTH_MODE'

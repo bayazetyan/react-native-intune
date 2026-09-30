@@ -115,6 +115,7 @@ const Intune = {
   setResetHandler,
   getPolicy,
   getDiagnostics,
+  /** @internal Outside the contract in 1.x — see `AuthMode`. */
   setTokenProvider,
   onEnrollmentResult,
   onUnenrollmentResult,
