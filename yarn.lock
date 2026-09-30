@@ -18074,9 +18074,9 @@ __metadata:
     turbo: "npm:^2.9.16"
     typescript: "npm:^6.0.3"
   peerDependencies:
-    "@expo/config-plugins": ">=7"
+    "@expo/config-plugins": ">=54.0.0"
     react: "*"
-    react-native: "*"
+    react-native: ">=0.74.0"
   peerDependenciesMeta:
     "@expo/config-plugins":
       optional: true

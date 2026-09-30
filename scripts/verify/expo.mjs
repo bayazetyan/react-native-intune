@@ -16,7 +16,10 @@
  *
  * Not part of `yarn test`. It needs the network, an Android SDK and several minutes:
  *
- *     yarn verify:expo [--keep] [--device]
+ *     yarn verify:expo [--sdk 57] [--keep] [--device]
+ *
+ * `--sdk` picks the Expo SDK, which is how the `@expo/config-plugins` range in
+ * peerDependencies is tested rather than assumed.
  *
  * `--keep` leaves the generated project in place and prints its path, which is what you
  * want the moment anything fails.
@@ -34,6 +37,7 @@ import path from 'node:path';
 
 import {
   ROOT,
+  option,
   assembleDebug,
   assembleRelease,
   fail,
@@ -55,7 +59,7 @@ import {
  * — or passing — for reasons unrelated to the change under test, and "verified" would
  * stop meaning a particular thing.
  */
-const EXPO_SDK = 57;
+const EXPO_SDK = Number(option('sdk', 57));
 const CREATE_EXPO_APP = '5.0.0';
 
 /**
