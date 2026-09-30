@@ -35,6 +35,7 @@ import path from 'node:path';
 import {
   ROOT,
   assembleDebug,
+  assembleRelease,
   fail,
   checkApplicationSource,
   checkMamReport,
@@ -165,21 +166,10 @@ await verify('rni-expo-', async (dir) => {
   assembleDebug(app, androidHome);
   checkMamReport(app, packageName);
 
+  // Signed with the debug key — the template's release config does — which is the key
+  // whose hash the registration carries. Bundled, so it runs without Metro.
+  const apk = assembleRelease(app, androidHome);
   if (DEVICE) {
-    say('Building a release APK with the JavaScript bundled in');
-    // Signed with the debug key — the template's release config does — which is the key
-    // whose hash the registration carries. Bundled, so it runs without Metro.
-    run('./gradlew', [':app:assembleRelease', '--no-daemon'], {
-      cwd: path.join(app, 'android'),
-      env: { ...process.env, ANDROID_HOME: androidHome },
-    });
-    const apk = path.join(
-      app,
-      'android/app/build/outputs/apk/release/app-release.apk'
-    );
-    if (!fs.existsSync(apk)) {
-      fail(`No release APK at ${apk}`);
-    }
     process.stdout.write(
       '\nReady for a device:\n' +
         `  Android  adb install -r ${apk}\n` +

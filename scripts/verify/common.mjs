@@ -129,6 +129,51 @@ export function requireXcode() {
 // ---------------------------------------------------------------- the package
 
 /**
+ * Runs `fn` while holding a lock shared by every verification on this machine.
+ *
+ * `npm pack` runs `prepare`, and `bob build` cleans and rewrites this checkout's `lib/`.
+ * Two runs side by side — the Expo and bare verifications, say — therefore race on the
+ * same directory, and one of them fails with "Failed to build definition files" or,
+ * worse, packs a half-written `lib/`. A directory is the lock because creating one is
+ * atomic; one older than the longest pack is taken to be left by a killed run.
+ */
+function withPackLock(fn) {
+  const lock = path.join(os.tmpdir(), 'react-native-intune-pack.lock');
+  const stale = 10 * 60 * 1000;
+  const sleep = (ms) =>
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  let waited = false;
+  for (;;) {
+    try {
+      fs.mkdirSync(lock);
+      break;
+    } catch (error) {
+      if (error.code !== 'EEXIST') {
+        throw error;
+      }
+      try {
+        if (Date.now() - fs.statSync(lock).mtimeMs > stale) {
+          fs.rmSync(lock, { recursive: true, force: true });
+          continue;
+        }
+      } catch {
+        continue;
+      }
+      if (!waited) {
+        note('another run is packing — waiting for it');
+        waited = true;
+      }
+      sleep(1000);
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    fs.rmSync(lock, { recursive: true, force: true });
+  }
+}
+
+/**
  * Packs the library and returns the tarball's path.
  *
  * `npm pack --json` is not used, and the reason is worth keeping: pack runs `prepare`,
@@ -148,7 +193,9 @@ export function packTarball(dir) {
     destination,
     `${pkg.name.replace('@', '').replace('/', '-')}-${pkg.version}.tgz`
   );
-  run('npm', ['pack', '--pack-destination', destination], { cwd: ROOT });
+  withPackLock(() =>
+    run('npm', ['pack', '--pack-destination', destination], { cwd: ROOT })
+  );
   if (!fs.existsSync(tarball)) {
     fail(`npm pack did not produce ${tarball}`);
   }
@@ -285,6 +332,29 @@ export function checkApplicationSource(app) {
   }
   note(path.relative(app, file));
   return packageName;
+}
+
+/**
+ * A release build, run on every verification rather than only when asked. Debug builds
+ * skip lintVital and minification, and a clean release was broken for every consumer
+ * for three weeks while every debug build here was green.
+ */
+export function assembleRelease(app, androidHome) {
+  say('Building :app:assembleRelease');
+  run('./gradlew', [':app:assembleRelease', '--no-daemon'], {
+    cwd: path.join(app, 'android'),
+    env: { ...process.env, ANDROID_HOME: androidHome },
+  });
+  const apk = path.join(
+    app,
+    'android/app/build/outputs/apk/release/app-release.apk'
+  );
+  if (!fs.existsSync(apk)) {
+    fail(
+      `assembleRelease succeeded but produced no ${path.relative(app, apk)}`
+    );
+  }
+  return apk;
 }
 
 export function assembleDebug(app, androidHome) {

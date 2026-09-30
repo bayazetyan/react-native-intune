@@ -28,6 +28,7 @@ import path from 'node:path';
 
 import {
   assembleDebug,
+  assembleRelease,
   capture,
   checkApplicationSource,
   checkMamReport,
@@ -215,6 +216,7 @@ await verify('rni-bare-', async (dir) => {
     const packageName = checkApplicationSource(app);
     assembleDebug(app, androidHome);
     checkMamReport(app, packageName);
+    assembleRelease(app, androidHome);
   }
 
   // ---------------------------------------------------------------- ios
