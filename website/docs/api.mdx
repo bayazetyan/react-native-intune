@@ -25,7 +25,6 @@ Every public method, with the platform differences stated rather than hidden. An
 | `getPolicy()` | Policy snapshot, for adapting your own UI |
 | `reset({ wipe, reason })` | Unenroll, optionally wipe, clear config |
 | `getDiagnostics()` | Opaque key/value for support bundles |
-| `setTokenProvider(fn)` | Supply MAM service tokens. `external` mode only |
 | `setResetHandler(fn)` | Clean up your local data during a reset |
 
 Events: `onEnrollmentResult`, `onPolicyChanged`, `onUnenrollmentResult`, `onWipeRequested`, `onRestartRequired`, `onBrokerStatusChanged`.

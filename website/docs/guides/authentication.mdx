@@ -15,23 +15,6 @@ await Intune.enroll({ accountId: account.accountId });
 
 Sign-in goes through the broker (Authenticator or Company Portal) when one is present, which is what makes MAM enrollment possible at all — a browser-redirect flow cannot produce a token the MAM service accepts, and it also bypasses the device registration Conditional Access depends on. A side effect worth knowing: because the broker gives device-wide SSO, a user already signed into Outlook typically gets a token with no prompt.
 
-## If you already have MSAL
-
-Set `authMode: 'external'` and the module performs no sign-in. You supply the account ID and answer token requests:
-
-```ts
-await Intune.configure({ ...cfg, authMode: 'external' });
-
-Intune.setTokenProvider(async ({ resourceId, authority }) => {
-  const r = await yourMsal.acquireTokenSilent({ scopes: [`${resourceId}/.default`], authority });
-  return r.accessToken;
-});
-
-await Intune.enroll({ accountId: yourAccount.identifier });   // Entra object ID, not the UPN
-```
-
-In this mode you are responsible for removing the account from your MSAL cache during a reset. In `builtin` mode `signOut({ wipeIntune: true })` does it in the right order for you.
-
 ## Two tokens, not one
 
 The token for *your* API and the token for the *Intune MAM service* are different, with different scopes. The MAM token is acquired internally and never exposed. Use `signIn()`'s result or `acquireToken()` for your own API.

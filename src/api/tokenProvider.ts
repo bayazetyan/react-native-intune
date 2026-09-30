@@ -20,6 +20,9 @@ let tokenProvider: TokenProvider | null = null;
  * Registers the provider for `authMode: 'external'`. Return `null` from it to say
  * "cannot get a token right now" — the SDK treats that as needing authorization rather
  * than as a hard failure.
+ *
+ * @internal Outside the contract in 1.x: `external` is kept working but has not been run
+ * on a device against a tenant. Planned for 2.0 — see `AuthMode`.
  */
 export function setTokenProvider(provider: TokenProvider | null): void {
   tokenProvider = provider;

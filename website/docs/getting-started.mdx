@@ -12,7 +12,7 @@ What you need before you begin, and the two commands that tell you what your pro
 | React Native | 0.74+, **New Architecture required** (TurboModules) |
 | iOS | **17.0+, Xcode 26+.** Not a preference — MAM SDK 21.x is built against them (`minos 17.0`, `sdk 26.2`, read from the binary). An app that must support iOS 16 has to pin MAM SDK 20.x, which Microsoft maintains for high-priority security fixes only |
 | Android | minSdk 24, compileSdk 36, Java 17. For Gradle, AGP and Kotlin there are two lists: the [compatibility matrix](https://learn.microsoft.com/en-us/intune/developer/app-sdk/android-phase-3) row Microsoft tests the pinned MAM SDK on — Gradle 8.11.1 / AGP 8.9.1 / Kotlin 2.1.21 — and the combinations this project has built and run itself, from React Native 0.74's Gradle 8.6 / Kotlin 1.9.22 to 0.87's Gradle 9.4.1 / Kotlin 2.2.0. `doctor` tells you which one your app is on, and whose claim it is |
-| Auth | **Included.** MSAL with broker support ships with this library. If your app already has its own MSAL, use `authMode: 'external'` — see [Authentication](./guides/authentication.mdx) |
+| Auth | **Included.** MSAL with broker support ships with this library — see [Authentication](./guides/authentication.mdx). An app that already brings its own MSAL is not supported in 1.x; that mode is planned for 2.0 |
 | Android runtime | The **Intune Company Portal** app must be installed on the device. There is no workaround |
 | Entra | An app registration per tenant, with the Intune MAM API permission granted |
 

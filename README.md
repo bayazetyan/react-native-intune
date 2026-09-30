@@ -22,9 +22,13 @@
 
 ---
 
-> **Status: pre-alpha.** Implemented and verified on real devices against a real tenant.
-> The public types changed twice in the fortnight before release, so expect breaking
-> changes until 1.0 and pin an exact version.
+> **Status: 1.0 release candidate.** From 1.0 on this follows semantic versioning — the
+> [versioning page](https://bayazetyan.github.io/react-native-intune/docs/versioning) says
+> exactly what that promises and what it cannot. Enrollment and policy enforcement are
+> verified on physical iOS and Android devices against a real tenant, through the broker
+> on each; fresh projects build on bare React Native 0.74 to 0.87 and Expo SDK 54 to 57.
+> Built for Xcode 26 — Xcode 27 support arrives with Microsoft's Intune SDK 22.x, which
+> will be 2.0 here.
 
 *Not affiliated with, endorsed by, or sponsored by Microsoft. Microsoft, Intune and Entra
 are trademarks of the Microsoft group of companies.*

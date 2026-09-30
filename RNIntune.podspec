@@ -19,8 +19,8 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  # Deliberately NOT min_ios_version_supported. Intune App SDK 21.8.0 is built with
-  # `minos 17.0` (verified with otool on IntuneMAMSwift.framework), so a host app on
+  # Deliberately NOT min_ios_version_supported. Intune App SDK 21.x is built with
+  # `minos 17.0` (verified with otool on IntuneMAMSwift.framework in 21.8.0 and 21.9.0), so a host app on
   # React Native's floor of 15.1 cannot link it. Supporting iOS 16 means pinning SDK
   # 20.x, which Microsoft maintains for high-priority security fixes only.
   s.platforms    = { :ios => "17.0" }
@@ -56,7 +56,7 @@ Pod::Spec.new do |s|
   # SDK runs the whole sign-in itself, fails with "Failed to instantiate MSALAuthority /
   # Ensure the appropriate version of ADAL is included in the application" (observed on
   # device, 2026-09-04). Version pinned in sdk-versions.json -> toolchain.msal_ios.
-  s.dependency "MSAL", "2.15.0"
+  s.dependency "MSAL", "2.16.0"
 
   s.pod_target_xcconfig = {
     "STRIP_SWIFT_SYMBOLS" => "NO",
