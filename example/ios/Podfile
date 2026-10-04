@@ -6,7 +6,7 @@ require Pod::Executable.execute_command('node', ['-p',
   )', __dir__]).strip
 
 # Not min_ios_version_supported (React Native 0.85 returns 15.1). Intune App SDK
-# 21.x is built with minos 17.0 (21.8.0 and 21.9.0 checked), so RNIntune.podspec declares iOS 17.0 and
+# 21.x is built with minos 17.0 (21.8.0, 21.9.0 and 21.9.1 checked), so RNIntune.podspec declares iOS 17.0 and
 # CocoaPods refuses to install it into a lower-targeted app. SPEC §5.1 still says
 # 16.0 — that predates the 21.x drop; see TODO.md.
 platform :ios, '17.0'

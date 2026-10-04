@@ -637,7 +637,7 @@ ${VERIFIED_TOOLCHAINS.map(
 
 /**
  * The lowest iOS the vendored MAM SDK runs on. Read from the binary (`otool -l` on
- * IntuneMAMSwift.framework reports `minos 17.0` in both 21.8.0 and 21.9.0), not from
+ * IntuneMAMSwift.framework reports `minos 17.0` in 21.8.0, 21.9.0 and 21.9.1), not from
  * Microsoft's release notes — the SDK should move this, not a guess.
  */
 const MIN_IOS = [17, 0];

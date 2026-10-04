@@ -76,7 +76,7 @@ body:
     attributes:
       label: Pinned MAM SDK version
       description: From `sdk-versions.json`, or your own pin if you changed it.
-      placeholder: "iOS 21.9.0 / Android 12.4.0"
+      placeholder: "iOS 21.9.1 / Android 12.4.0"
     validations:
       required: true
   - type: checkboxes
