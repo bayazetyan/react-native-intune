@@ -1,15 +1,15 @@
 {
   "ios": {
     "repo": "microsoftconnect/ms-intune-app-sdk-ios",
-    "tag": "21.9.0",
-    "fetchedAt": "2026-09-30T10:58:03.813Z",
+    "tag": "21.9.1",
+    "fetchedAt": "2026-10-04T06:47:27.631Z",
     "files": {
-      "ios/IntuneMAMSwift.xcframework": "6100e987caed8d4286056d04c003b71ad7ea15d3523495ab3cf7a3aa7d39565d",
-      "ios/IntuneMAMSwiftStub.xcframework": "b6906db29374ffbd4e8b708975572bc0cb3bb02199e36c61f5b359573175deb8",
-      "ios/IntuneMAMTelemetry.xcframework": "e218e261dbc28a70a390bc249905884a97790560ab4bd0e57633fc548cdef1d9",
-      "ios/IntuneMAMResources.bundle": "3d71e06a0261c4904b8104ef7405bdf22114ed60ccf09b6ab4094cd56199b7dd",
-      "ios/IntuneMAMConfigurator.dmg": "753a563e336e40884d2f30cfaad80663f6bd63a81c5bc53c5a232c49bec6ab07",
-      "ios/IntuneMAMConfigurator": "b8c747c49b114ad6171820edcf7562bcd43831c1da4dbdfcb6993c81c5136c72",
+      "ios/IntuneMAMSwift.xcframework": "702bb9197cfd4447a4001b98c078ba6dfe5ad972ba36b9e1d727012b4680d6f9",
+      "ios/IntuneMAMSwiftStub.xcframework": "119cb7762619b165707736d7b4a2a2c515eeccdb9fa7ea34c034ecf7463e9c7d",
+      "ios/IntuneMAMTelemetry.xcframework": "9b8af5e796c542a470b691e2af1140ae7135ea40b4f1ded71e3bd51d6d9fbf17",
+      "ios/IntuneMAMResources.bundle": "f517909384ebc6c272af68be0d4680d095416014ee7d89e4040f2d00f4cb780d",
+      "ios/IntuneMAMConfigurator.dmg": "ba3dad1ec01e1800ea4708270bc59c56224502ebfee3d091b0d9cdbf2dae9416",
+      "ios/IntuneMAMConfigurator": "2c889e896a623e418cbba39678b616b1b0186eb2d0096a13e2a236ac8cefb510",
       "ios/REDIST.txt": "31c5b0e0c3ee48b60c6f12e56d5a8b6d47754f127750f27627800d2b44b79e56",
       "ios/Microsoft License Terms Intune App SDK for iOS.pdf": "5b12b9a6ee3671a138b67884ff69c5bda17b6cb7bec0646f108cf072930c7394",
       "ios/ThirdPartyNotices.txt": "f99b09285acd2944c0dde5773f68cfa1179e8a743e0e6ba913d1f688a79d439f"

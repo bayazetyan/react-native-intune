@@ -20,7 +20,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   # Deliberately NOT min_ios_version_supported. Intune App SDK 21.x is built with
-  # `minos 17.0` (verified with otool on IntuneMAMSwift.framework in 21.8.0 and 21.9.0), so a host app on
+  # `minos 17.0` (verified with otool on IntuneMAMSwift.framework in 21.8.0, 21.9.0 and 21.9.1), so a host app on
   # React Native's floor of 15.1 cannot link it. Supporting iOS 16 means pinning SDK
   # 20.x, which Microsoft maintains for high-priority security fixes only.
   s.platforms    = { :ios => "17.0" }

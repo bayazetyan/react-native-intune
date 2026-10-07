@@ -10,7 +10,7 @@
   ],
   "ios": {
     "repo": "microsoftconnect/ms-intune-app-sdk-ios",
-    "tag": "21.9.0",
+    "tag": "21.9.1",
     "requires": {
       "ios": "17.0",
       "xcode": "26"

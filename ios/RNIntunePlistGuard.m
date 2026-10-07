@@ -6,7 +6,7 @@
 #import "RNIntuneCore.h"
 
 /// The `IntuneMAMSettings` dictionary in the host app's Info.plist, and the keys inside
-/// it that the SDK reads at launch. Verified against the strings in the 21.8.0 and 21.9.0 binaries.
+/// it that the SDK reads at launch. Verified against the strings in the 21.8.0, 21.9.0 and 21.9.1 binaries.
 static NSString *const kSettingsKey = @"IntuneMAMSettings";
 static NSString *const kClientId = @"ADALClientId";
 static NSString *const kAuthority = @"ADALAuthority";
