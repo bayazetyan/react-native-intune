@@ -1,6 +1,6 @@
 {
   "name": "react-native-intune",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "Microsoft Intune app protection policies (MAM) for React Native",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -58,7 +58,18 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "intune",
+    "microsoft-intune",
+    "mam",
+    "mobile-application-management",
+    "app-protection",
+    "msal",
+    "entra",
+    "expo",
+    "expo-config-plugin",
+    "turbomodule",
+    "mobile-security"
   ],
   "repository": {
     "type": "git",

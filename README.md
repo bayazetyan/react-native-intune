@@ -22,7 +22,7 @@
 
 ---
 
-> **Status: 1.0 release candidate.** From 1.0 on this follows semantic versioning — the
+> **Status: stable, 1.0.** This follows semantic versioning — the
 > [versioning page](https://bayazetyan.github.io/react-native-intune/docs/versioning) says
 > exactly what that promises and what it cannot. Enrollment and policy enforcement are
 > verified on physical iOS and Android devices against a real tenant, through the broker
