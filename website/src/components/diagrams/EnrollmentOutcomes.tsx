@@ -60,7 +60,7 @@ const HANDLE: Outcome[] = [
   {
     status: 'authorizationNeeded',
     meaning: 'No valid token was supplied.',
-    action: 'Check your token provider, then retry.',
+    action: 'Usually admin consent missing in Entra — see Troubleshooting, then retry.',
   },
   {
     status: 'wrongUser',

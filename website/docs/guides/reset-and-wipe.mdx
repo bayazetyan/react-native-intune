@@ -14,10 +14,9 @@ One code path, several callers: logout, a tenant change, Intune being switched o
 
 **On Android the app process is expected to terminate during this call.** Any code written after `await Intune.reset(...)` may never run. The module writes a journal before unregistering and finishes the sequence on the next launch — which is why the reconcile-at-launch pattern above is not optional.
 
-Two things the module cannot do for you:
+The module also removes the accounts from its MSAL cache — after the unregister, because the unregister needs a token from that same cache. Left behind, they make the sign-in screen autofill the previous user and the next enrollment fail on account mismatch.
 
-1. **Remove the account from the MSAL cache.** The module doesn't own MSAL. Skipping this causes the sign-in webview to autofill the previous user and the next enrollment to fail on account mismatch.
-2. **Delete your own local data.** Register `setResetHandler`.
+What it cannot do for you is **delete your own local data.** Register `setResetHandler`.
 
 A wipe can also be initiated by the customer's IT with no prior call from your app:
 
