@@ -56,7 +56,7 @@ Pod::Spec.new do |s|
   # SDK runs the whole sign-in itself, fails with "Failed to instantiate MSALAuthority /
   # Ensure the appropriate version of ADAL is included in the application" (observed on
   # device, 2026-09-04). Version pinned in sdk-versions.json -> toolchain.msal_ios.
-  s.dependency "MSAL", "2.16.0"
+  s.dependency "MSAL", "2.17.0"
 
   s.pod_target_xcconfig = {
     "STRIP_SWIFT_SYMBOLS" => "NO",

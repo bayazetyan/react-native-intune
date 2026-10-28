@@ -393,3 +393,69 @@ describe('android-toolchain', () => {
     expect(result.detail).toContain('kotlin 2.3.0');
   });
 });
+
+describe('android-r8-agp-9-2', () => {
+  const r8 = ({ agp, pinned }) => {
+    const root = fs.mkdtempSync(path.join(dir, 'r8-'));
+    const put = (name, contents) => {
+      const file = path.join(root, name);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, contents);
+      return file;
+    };
+    put('node_modules/react-native/gradle/libs.versions.toml', `[versions]\nagp = "${agp}"\n`);
+    const pin = pinned ? 'classpath("com.android.tools:r8:9.2.39")\n' : '';
+    return checks
+      .find((c) => c.id === 'android-r8-agp-9-2')
+      .inspect({
+        root,
+        android: {
+          dir: path.join(root, 'android'),
+          rootBuildGradle: put(
+            'android/build.gradle',
+            `buildscript { dependencies { ${pin}classpath("com.android.tools.build:gradle") } }\n`
+          ),
+        },
+      });
+  };
+
+  it('wants the pin on AGP 9.2', () => {
+    expect(r8({ agp: '9.2.1', pinned: false }).state).toBe('missing');
+    expect(r8({ agp: '9.2.1', pinned: true }).state).toBe('ok');
+  });
+
+  it('skips other AGPs', () => {
+    expect(r8({ agp: '8.12.0', pinned: false }).state).toBe('skip');
+  });
+
+  /** Left behind after an upgrade, the pin downgrades the R8 the new AGP bundles. */
+  it('flags a pin left behind on another AGP', () => {
+    const result = r8({ agp: '9.3.0', pinned: true });
+    expect(result.state).toBe('wrong');
+    expect(result.detail).toContain('9.3.0');
+  });
+});
+
+describe('android-compile-sdk', () => {
+  const compileSdk = (value) => {
+    const root = fs.mkdtempSync(path.join(dir, 'cs-'));
+    const file = path.join(root, 'android/build.gradle');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `buildscript { ext { compileSdkVersion = ${value} } }\n`);
+    const check = checks.find((c) => c.id === 'android-compile-sdk');
+    const p = { root, android: { dir: path.dirname(file), rootBuildGradle: file } };
+    return { result: check.inspect(p), edit: check.apply(p) };
+  };
+
+  /** React Native 0.74's template value: builds, then fails in R8 on missing classes. */
+  it('raises 34 to 36', () => {
+    const { result, edit } = compileSdk(34);
+    expect(result.state).toBe('wrong');
+    expect(edit.contents).toContain('compileSdkVersion = 36');
+  });
+
+  it('leaves 36 and later alone', () => {
+    expect(compileSdk(36).result.state).toBe('ok');
+    expect(compileSdk(37).edit).toBeNull();
+  });
+});

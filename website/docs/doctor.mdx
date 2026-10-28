@@ -17,7 +17,7 @@ npx react-native-intune setup    # applies it, and shows every change as a diff 
 
 | | What `setup` writes |
 |---|---|
-| Android | The MAM Gradle plugin and its classpath, `minSdk 24`, the broker `<queries>`, the `BrowserTabActivity` redirect, and the auth callback after `super.onCreate()` |
+| Android | The MAM Gradle plugin and its classpath, on AGP 9.2 a working R8, `minSdk 24`, `compileSdk 36`, the broker `<queries>`, the `BrowserTabActivity` redirect, and the auth callback after `super.onCreate()` |
 | iOS | The deployment target in the Podfile and the app target, keychain groups — creating the entitlements file React Native's template does not have — the `msauth` URL type and query schemes, the MSAL redirect forward in the AppDelegate, and the `IntuneMAMConfigurator` build phase |
 
 Your `Application` class keeps extending `android.app.Application`: the Gradle plugin rewrites its superclass at build time, so there is nothing to change there.

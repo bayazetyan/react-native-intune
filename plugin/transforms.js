@@ -74,6 +74,47 @@ function withMamClasspath(contents, { javassist = '3.29.2-GA' } = {}) {
 }
 
 /**
+ * The R8 that AGP 9.2 bundles (9.2.14, still in 9.2.1, the last 9.2 release) crashes on
+ * a rule in the MAM SDK's own consumer rules:
+ *
+ *     -keep,allowobfuscation class com.microsoft.intune.mam.** implements @androidx.annotation.Keep ** {*;}
+ *
+ * The crash has no message — `ERROR: R8: com.android.tools.r8.internal.kh4` — and only a
+ * minified release build hits it. Expo SDK 58 and React Native 0.87+ ship AGP 9.2, and
+ * Expo 58 turns minification on by default. Dropping the rule is not an option: it keeps
+ * R8 from devirtualising interfaces the SDK implements again in Company Portal's process.
+ * A later 9.2 patch of R8 handles it, so the fix is to put that R8 on the buildscript
+ * classpath, ahead of AGP. Bisected on 2026-10-28: blank Expo 58 builds, plus MSAL
+ * builds, plus the MAM SDK fails, the MAM SDK without that rule builds, the MAM SDK with
+ * it on R8 9.2.39 builds.
+ */
+const R8_FOR_AGP_9_2 = '9.2.39';
+
+/** AGP's version from React Native's version catalog, or null if it does not state one. */
+function agpFromCatalog(toml) {
+  return toml?.match(/^agp\s*=\s*"([\d.]+)"/m)?.[1] ?? null;
+}
+
+/**
+ * Pins R8 on the root buildscript classpath when the app builds with AGP 9.2, and only
+ * then: on any other AGP the pin would replace a newer bundled R8 with an older one.
+ */
+function withR8ForAgp92(contents, agp) {
+  if (!agp?.startsWith('9.2.') || contents.includes('com.android.tools:r8:')) {
+    return contents;
+  }
+  const lines = [
+    `        // ${MARKER}: AGP 9.2's bundled R8 crashes on the MAM SDK's keep rules`,
+    `        classpath("com.android.tools:r8:${R8_FOR_AGP_9_2}")`,
+  ].join('\n');
+  const anchor = /(buildscript\s*\{[\s\S]*?dependencies\s*\{\s*\n)/;
+  if (!anchor.test(contents)) {
+    return null;
+  }
+  return contents.replace(anchor, `$1${lines}\n`);
+}
+
+/**
  * Registers the auth callback in the generated Application class.
  *
  * **It deliberately does not touch the superclass.** An earlier version rewrote
@@ -343,6 +384,8 @@ module.exports = {
   MARKER,
   withMamPluginApplied,
   withMamClasspath,
+  agpFromCatalog,
+  withR8ForAgp92,
   withMamApplication,
   withMsalResponseHandler,
 };

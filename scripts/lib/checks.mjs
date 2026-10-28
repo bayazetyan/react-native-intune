@@ -173,6 +173,52 @@ const androidChecks = [
   },
 
   {
+    id: 'android-r8-agp-9-2',
+    platform: 'android',
+    title: 'A working R8 on AGP 9.2',
+    severity: 'loud',
+    /**
+     * AGP 9.2's bundled R8 crashes on a rule in the MAM SDK's own consumer rules, with no
+     * message, in minified release builds only — see withR8ForAgp92 in the transforms.
+     * Expo SDK 58 and React Native 0.87+ are on AGP 9.2. The pin is only right on 9.2:
+     * left behind after an upgrade it replaces a newer bundled R8 with an older one.
+     */
+    inspect(project) {
+      const src = read(project.android.rootBuildGradle);
+      if (!src) {
+        return { state: 'unknown', detail: 'android/build.gradle not found' };
+      }
+      const agp = appAgp(project, src);
+      if (!agp) {
+        return { state: 'unknown', detail: 'could not read the AGP version' };
+      }
+      const pinned = /com\.android\.tools:r8:/.test(src);
+      if (!agp.startsWith('9.2.')) {
+        return pinned
+          ? { state: 'wrong', detail: `R8 pinned, but AGP is ${agp} — the pin is for 9.2` }
+          : { state: 'skip', detail: `AGP ${agp}` };
+      }
+      return pinned ? { state: 'ok', detail: `AGP ${agp}` } : { state: 'missing' };
+    },
+    why:
+      'R8 9.2.14, which AGP 9.2 bundles, crashes on the Intune SDK’s keep rules: a ' +
+      'minified release build fails with "ERROR: R8: com.android.tools.r8.internal.kh4" ' +
+      'and no message. Debug builds and unminified releases are unaffected.',
+    instruction: () =>
+      `In android/build.gradle, inside buildscript { dependencies { } }, before the AGP line:
+
+    classpath("com.android.tools:r8:9.2.39")
+
+  Only on AGP 9.2. Remove it when you move to another AGP.`,
+    apply(project) {
+      const file = project.android.rootBuildGradle;
+      const src = read(file);
+      const contents = src && transforms.withR8ForAgp92(src, appAgp(project, src));
+      return contents ? { file, contents } : null;
+    },
+  },
+
+  {
     id: 'android-min-sdk',
     platform: 'android',
     title: 'minSdk 24 or later',
@@ -213,6 +259,53 @@ const androidChecks = [
       const m = src && src.match(/(minSdkVersion\s*=\s*)(\d+)/);
       return m && Number(m[2]) < 24
         ? { file, contents: src.replace(m[0], `${m[1]}24`) }
+        : null;
+    },
+  },
+
+  {
+    id: 'android-compile-sdk',
+    platform: 'android',
+    title: 'compileSdk 36 or later',
+    severity: 'loud',
+    /**
+     * The MAM SDK's compatibility row is Android 16, API 36, and the SDK calls API 35 and
+     * 36 classes on devices that have them. Below 36 everything builds until R8 runs: a
+     * minified release fails on "Missing class android.app.appsearch.
+     * EnterpriseGlobalSearchSession" and two others, which reads like a ProGuard gap rather
+     * than a compileSdk. React Native 0.74's template ships 34.
+     */
+    inspect(project) {
+      const root = read(project.android.rootBuildGradle);
+      const properties = read(path.join(project.android.dir, 'gradle.properties'));
+      const value =
+        firstMatch(root, /compileSdkVersion\s*=\s*(\d+)/) ??
+        firstMatch(properties, /^android\.compileSdkVersion\s*=\s*(\d+)/m) ??
+        firstMatch(read(project.android.appBuildGradle), /compileSdk(?:Version)?\s*=?\s*(\d+)/);
+      if (!value) {
+        return { state: 'unknown', detail: 'no literal compileSdkVersion in the build files' };
+      }
+      return Number(value) >= 36
+        ? { state: 'ok', detail: value }
+        : { state: 'wrong', detail: `compileSdkVersion ${value}` };
+    },
+    why:
+      'The Intune SDK is built against API 36. Below it debug builds pass and a minified ' +
+      'release fails in R8 on Android framework classes it cannot find.',
+    instruction: () =>
+      `In android/build.gradle:
+
+    buildscript {
+      ext {
+        compileSdkVersion = 36
+      }
+    }`,
+    apply(project) {
+      const file = project.android.rootBuildGradle;
+      const src = read(file);
+      const m = src && src.match(/(compileSdkVersion\s*=\s*)(\d+)/);
+      return m && Number(m[2]) < 36
+        ? { file, contents: src.replace(m[0], `${m[1]}36`) }
         : null;
     },
   },
@@ -545,20 +638,17 @@ ${BROKER_PACKAGES.map((p) => `        <package android:name="${p}" />`).join('\n
       }
 
       const found = {
-        agp: firstMatch(src, /com\.android\.tools\.build:gradle:([\d.]+)/),
+        agp: appAgp(project, src),
         kotlin: firstMatch(src, /kotlin(?:-gradle-plugin|\("jvm"\))?[:"' ]+version[:"' ]+([\d.]+)/i) ||
           firstMatch(src, /kotlin-gradle-plugin:([\d.]+)/) ||
           firstMatch(src, /kotlinVersion["' ]*[:=]["' ]*([\d.]+)/),
         gradle: gradleWrapperVersion(project),
       };
-      // React Native's templates leave AGP and Kotlin to React Native's own version
-      // catalog — `classpath("com.android.tools.build:gradle")` with no version, which
-      // the React Native Gradle plugin resolves from it. So that catalog is where the
-      // versions the app actually builds with are written.
+      // Kotlin, like AGP (see appAgp), is left to React Native's own version catalog by
+      // React Native's templates.
       const catalog = read(
         path.join(project.root, 'node_modules/react-native/gradle/libs.versions.toml')
       );
-      found.agp ||= firstMatch(catalog, /^agp\s*=\s*"([\d.]+)"/m);
       found.kotlin ||= firstMatch(catalog, /^kotlin\s*=\s*"([\d.]+)"/m);
       const rn = (() => {
         try {
@@ -1255,6 +1345,21 @@ const VERIFIED_TOOLCHAINS = TOOLCHAIN.verified ?? [];
 function firstMatch(src, re) {
   const m = src.match(re);
   return m ? m[1] : null;
+}
+
+/**
+ * The AGP the app builds with: a literal version in the root build file if it has one,
+ * otherwise React Native's own version catalog. React Native's templates leave AGP
+ * unversioned and the React Native Gradle plugin resolves it from that catalog, so that
+ * is where the version the app actually builds with is written.
+ */
+function appAgp(project, rootSrc) {
+  return (
+    firstMatch(rootSrc ?? '', /com\.android\.tools\.build:gradle:([\d.]+)/) ??
+    transforms.agpFromCatalog(
+      read(path.join(project.root, 'node_modules/react-native/gradle/libs.versions.toml'))
+    )
+  );
 }
 
 /** Gradle's version lives in the wrapper properties, not in any build file. */

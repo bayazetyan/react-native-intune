@@ -16,7 +16,7 @@
  *
  * Not part of `yarn test`. It needs the network, an Android SDK and several minutes:
  *
- *     yarn verify:expo [--sdk 57] [--keep] [--device]
+ *     yarn verify:expo [--sdk 58] [--keep] [--device]
  *
  * `--sdk` picks the Expo SDK, which is how the `@expo/config-plugins` range in
  * peerDependencies is tested rather than assumed.
@@ -59,7 +59,7 @@ import {
  * — or passing — for reasons unrelated to the change under test, and "verified" would
  * stop meaning a particular thing.
  */
-const EXPO_SDK = Number(option('sdk', 57));
+const EXPO_SDK = Number(option('sdk', 58));
 const CREATE_EXPO_APP = '5.0.0';
 
 /**
@@ -141,6 +141,13 @@ await verify('rni-expo-', async (dir) => {
       "export { default } from './src/App';\n"
     );
   } else {
+    // Named, so prebuild does not fall back to com.anonymous.app. Expo checks that name
+    // against the Play Store, and since it was taken there (2026-10-28, SDK 57) prebuild
+    // stops to ask "Continue?" — an error in non-interactive mode.
+    config.expo.android = {
+      ...config.expo.android,
+      package: 'com.reactnativeintune.verify',
+    };
     fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
   }
 

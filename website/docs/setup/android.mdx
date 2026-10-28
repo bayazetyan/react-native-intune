@@ -15,12 +15,13 @@ The MAM Gradle plugin belongs in **your app module**, never in this library. App
 `npx react-native-intune setup` makes every change on this page that is the same in every project, and shows each as a diff before writing it. This page is the reference for what it writes, and for doing it by hand. See [doctor and setup](../doctor.mdx) for what it leaves to you.
 :::
 
-**Before you start: `minSdk` 24.** MSAL requires it. React Native 0.74's template ships 23, and the build then fails at manifest merging, naming MSAL; newer templates already have 24. In `android/build.gradle`:
+**Before you start: `minSdk` 24 and `compileSdk` 36.** MSAL requires the first: React Native 0.74's template ships 23, and the build then fails at manifest merging, naming MSAL. The Intune SDK is built against API 36: below it debug builds pass and a minified release fails in R8 on Android framework classes it cannot find. React Native 0.74's template ships 34; templates from 0.81 already have both. In `android/build.gradle`:
 
 ```groovy
 buildscript {
   ext {
     minSdkVersion = 24
+    compileSdkVersion = 36
   }
 }
 ```
@@ -50,6 +51,15 @@ buildscript {
    ```
 
    > The plugin rewrites bytecode across your whole app and all its dependencies. Applying it inside this library instead would build successfully and protect nothing.
+
+   **On AGP 9.2** — React Native 0.87 and later — also pin R8, ahead of the AGP line. The R8 that AGP 9.2 bundles crashes on the Intune SDK's keep rules in a minified release build; see [Traps](../notes/traps.mdx).
+
+   ```groovy
+   // android/build.gradle, buildscript { dependencies { } }
+   classpath("com.android.tools:r8:9.2.39")
+   ```
+
+   Only on AGP 9.2: on another AGP it would replace a newer bundled R8 with an older one. `doctor` reports a pin left behind after an upgrade.
 
 2. **Application class.** If you subclass `android.app.Application`, the plugin transforms it for you. If you don't, set it explicitly:
 

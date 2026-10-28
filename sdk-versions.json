@@ -101,11 +101,13 @@
       "msal_android has no requirement from Microsoft to satisfy. The Android SDK guide says",
       "only \"integrate MSAL\" and links the MSAL repository, unlike iOS where the coupling is",
       "hard. So this is our choice, pinned for reproducibility rather than compatibility:",
-      "8.5.0, released 2026-09-16 with a fix for CVE-2026-54399 in Apache HttpCore.",
+      "8.6.0, released 2026-10-21 (common 25.0.0, an MsalArgumentException field-mapping",
+      "fix). minSdk 24 and compileSdk 36 are unchanged from 8.5.0.",
       "",
       "msal_ios is exact, not a range: the Intune SDK does not carry its own MSAL, it drives",
       "the app's. Two consumers on different MSALs is the same hazard pinning the Intune SDK",
-      "exists to prevent. Resolved by CocoaPods on 2026-09-04, not guessed.",
+      "exists to prevent. Resolved by CocoaPods on 2026-09-04, not guessed. 2.17.0 since",
+      "2026-10-28: deployment target 17.0, unchanged from 2.16.0 (MSAL.podspec at both tags).",
       "",
       "`requires` is the compatibility-matrix row for the pinned Android tag above (12.4.0 ->",
       "the 12.0.0 row). Microsoft tests these combinations; mixing rows is untested by Microsoft.",
@@ -117,8 +119,8 @@
       "any AGP works. Add a row by running verify:bare or verify:expo, never by reasoning."
     ],
     "javassist": "3.29.2-GA",
-    "msal_ios": "2.16.0",
-    "msal_android": "8.5.0",
+    "msal_ios": "2.17.0",
+    "msal_android": "8.6.0",
     "requires": {
       "android": "16",
       "gradle": "8.11.1",
@@ -161,6 +163,24 @@
         "java": "17",
         "date": "2026-09-30",
         "ran": "verify:bare: debug and release, rewrite confirmed"
+      },
+      {
+        "reactNative": "0.88.1",
+        "gradle": "9.4.1",
+        "kotlin": "2.2.0",
+        "agp": "9.2.1",
+        "java": "17",
+        "date": "2026-10-28",
+        "ran": "verify:bare --release: debug and release with R8 (R8 9.2.39 pinned by setup), rewrite confirmed"
+      },
+      {
+        "reactNative": "0.88.1 (Expo SDK 58)",
+        "gradle": "9.4.1",
+        "kotlin": "2.2.0",
+        "agp": "9.2.1",
+        "java": "17",
+        "date": "2026-10-28",
+        "ran": "verify:expo: debug and release with R8 (R8 9.2.39 pinned by the plugin), rewrite confirmed"
       }
     ]
   }
