@@ -26,7 +26,7 @@
 > [versioning page](https://bayazetyan.github.io/react-native-intune/docs/versioning) says
 > exactly what that promises and what it cannot. Enrollment and policy enforcement are
 > verified on physical iOS and Android devices against a real tenant, through the broker
-> on each; fresh projects build on bare React Native 0.74 to 0.87 and Expo SDK 54 to 57.
+> on each; fresh projects build on bare React Native 0.74 to 0.88 and Expo SDK 54 to 58.
 > Built for Xcode 26 — Xcode 27 support arrives with Microsoft's Intune SDK 22.x, which
 > will be 2.0 here.
 

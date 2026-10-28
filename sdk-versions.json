@@ -163,6 +163,24 @@
         "java": "17",
         "date": "2026-09-30",
         "ran": "verify:bare: debug and release, rewrite confirmed"
+      },
+      {
+        "reactNative": "0.88.1",
+        "gradle": "9.4.1",
+        "kotlin": "2.2.0",
+        "agp": "9.2.1",
+        "java": "17",
+        "date": "2026-10-28",
+        "ran": "verify:bare --release: debug and release with R8 (R8 9.2.39 pinned by setup), rewrite confirmed"
+      },
+      {
+        "reactNative": "0.88.1 (Expo SDK 58)",
+        "gradle": "9.4.1",
+        "kotlin": "2.2.0",
+        "agp": "9.2.1",
+        "java": "17",
+        "date": "2026-10-28",
+        "ran": "verify:expo: debug and release with R8 (R8 9.2.39 pinned by the plugin), rewrite confirmed"
       }
     ]
   }
