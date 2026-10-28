@@ -154,7 +154,7 @@ library; set it with `expo-build-properties`:
 | `AppDelegate` | Forwards the sign-in redirect to MSAL from the open-URL handler. Without it the broker's reply reaches the app and is dropped, and sign-in never completes |
 | `AndroidManifest.xml` | Broker `<queries>`, and the MSAL `BrowserTabActivity` |
 | `android/app/build.gradle` | The MAM Gradle plugin, applied to your app module |
-| `android/build.gradle` | The plugin jar and javassist on the buildscript classpath |
+| `android/build.gradle` | The plugin jar and javassist on the buildscript classpath, and on AGP 9.2 (SDK 58) a working R8 |
 | `MainApplication.kt` / `.java` | The auth callback registered in `onCreate`. The superclass stays `Application` — the Gradle plugin rewrites it at build time |
 
 ## Why this is automatic here and manual everywhere else

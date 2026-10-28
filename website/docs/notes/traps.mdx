@@ -164,6 +164,29 @@ ships consumer ProGuard rules for that; a hand integration needs its own `-dontw
 entries.
 :::
 
+:::warning[Below compileSdk 36, R8 reports missing Android classes]
+React Native 0.74's template compiles against API 34. Everything builds until R8 runs, and
+then a minified release fails on `Missing class
+android.app.appsearch.EnterpriseGlobalSearchSession`, `android.content.pm.ArchivedPackageInfo`
+and `android.provider.CloudMediaProviderContract$Capabilities` — framework classes the
+Intune SDK calls on devices that have them. It reads like a ProGuard gap; it is a
+`compileSdk`. Raise it to 36, which `setup` does. Built on 2026-10-28: React Native 0.74.7
+with compileSdk 36, AGP 8.2 and R8 on.
+:::
+
+:::warning[On AGP 9.2, R8 crashes on the Intune SDK's keep rules]
+A minified release build on AGP 9.2 — React Native 0.87 and later, Expo SDK 58 — fails in
+`minifyReleaseWithR8` with `ERROR: R8: com.android.tools.r8.internal.kh4` and nothing
+else. Debug builds pass, and so does a release with R8 off, which is the React Native
+template's default; Expo SDK 58 turns it on. The cause is R8 9.2.14, which AGP 9.2.1
+bundles, failing on one rule in the MAM SDK's own consumer rules
+(`-keep,allowobfuscation class com.microsoft.intune.mam.** implements @androidx.annotation.Keep **`).
+Not MSAL and not the Gradle plugin: bisected with each removed. Deleting that rule is not
+the fix — it stops R8 from devirtualising interfaces the SDK implements again in Company
+Portal's process. R8 9.2.39 handles it, so `setup` and the Expo plugin put that R8 on the
+buildscript classpath when the app is on AGP 9.2, and only then.
+:::
+
 :::warning[MSAL rejects the reserved scopes]
 `openid`, `profile` and `offline_access` are added by MSAL itself and passing them
 explicitly is an error. Ask for your own API's scopes only.

@@ -44,12 +44,17 @@ const {
   withProjectBuildGradle,
 } = require('@expo/config-plugins');
 
+const fs = require('fs');
+const path = require('path');
+
 const {
   MARKER,
+  agpFromCatalog,
   withMamApplication,
   withMamClasspath,
   withMamPluginApplied,
   withMsalResponseHandler,
+  withR8ForAgp92,
 } = require('./transforms');
 
 const pkg = require('../package.json');
@@ -261,6 +266,24 @@ const withRedirectActivity = (config, { androidSignatureHash }) =>
     return c;
   });
 
+/**
+ * The AGP the app builds with. Expo's template leaves it unversioned and React Native's
+ * Gradle plugin resolves it from React Native's own version catalog, so that is the file
+ * to read. null when it cannot be read, which leaves the R8 pin out.
+ */
+const appAgp = (projectRoot) => {
+  try {
+    const rn = path.dirname(
+      require.resolve('react-native/package.json', { paths: [projectRoot] })
+    );
+    return agpFromCatalog(
+      fs.readFileSync(path.join(rn, 'gradle/libs.versions.toml'), 'utf8')
+    );
+  } catch {
+    return null;
+  }
+};
+
 const withGradle = (config) => {
   let next = withAppBuildGradle(config, (c) => {
     if (c.modResults.language !== 'groovy') {
@@ -293,7 +316,8 @@ const withGradle = (config) => {
       );
       return c;
     }
-    c.modResults.contents = result;
+    c.modResults.contents =
+      withR8ForAgp92(result, appAgp(c.modRequest.projectRoot)) ?? result;
     return c;
   });
 

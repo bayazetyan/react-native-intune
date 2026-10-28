@@ -1,9 +1,11 @@
 const { describe, expect, it } = require('@jest/globals');
 const {
   withMamApplication,
+  agpFromCatalog,
   withMamClasspath,
   withMamPluginApplied,
   withMsalResponseHandler,
+  withR8ForAgp92,
 } = require('../transforms');
 
 /**
@@ -273,6 +275,63 @@ allprojects {
 
   it('returns null when there is no buildscript dependencies block to anchor on', () => {
     expect(withMamClasspath('allprojects { }\n')).toBeNull();
+  });
+});
+
+describe('withR8ForAgp92', () => {
+  const ROOT_GRADLE = `buildscript {
+    dependencies {
+        classpath('com.android.tools.build:gradle')
+    }
+}
+
+allprojects {
+    dependencies {
+    }
+}
+`;
+
+  /**
+   * Ahead of AGP, because the buildscript classpath is resolved in order and AGP brings
+   * its own R8. Placed after it, the pin would be on the classpath and unused.
+   */
+  it('pins R8 ahead of AGP on AGP 9.2', () => {
+    const out = withR8ForAgp92(ROOT_GRADLE, '9.2.1');
+    const pin = out.indexOf('com.android.tools:r8:9.2.39');
+    expect(pin).toBeGreaterThan(out.indexOf('buildscript {'));
+    expect(pin).toBeLessThan(out.indexOf('com.android.tools.build:gradle'));
+  });
+
+  /** On any other AGP the pin would replace a newer bundled R8 with an older one. */
+  it('leaves every other AGP alone', () => {
+    for (const agp of ['8.12.0', '9.3.0', '9.20.0', null]) {
+      expect(withR8ForAgp92(ROOT_GRADLE, agp)).toBe(ROOT_GRADLE);
+    }
+  });
+
+  it('is idempotent', () => {
+    const once = withR8ForAgp92(ROOT_GRADLE, '9.2.1');
+    expect(withR8ForAgp92(once, '9.2.1')).toBe(once);
+  });
+
+  it('keeps an R8 the app already pins', () => {
+    const own = ROOT_GRADLE.replace(
+      "classpath('com.android.tools.build:gradle')",
+      "classpath('com.android.tools:r8:9.2.40')\n        classpath('com.android.tools.build:gradle')"
+    );
+    expect(withR8ForAgp92(own, '9.2.1')).toBe(own);
+  });
+
+  it('returns null when there is no buildscript dependencies block to anchor on', () => {
+    expect(withR8ForAgp92('allprojects { }\n', '9.2.1')).toBeNull();
+  });
+
+  it("reads AGP from React Native's version catalog", () => {
+    expect(
+      agpFromCatalog('[versions]\nagp = "9.2.1"\nkotlin = "2.2.0"\n')
+    ).toBe('9.2.1');
+    expect(agpFromCatalog('[versions]\nkotlin = "2.2.0"\n')).toBeNull();
+    expect(agpFromCatalog('')).toBeNull();
   });
 });
 
