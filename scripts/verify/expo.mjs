@@ -141,6 +141,13 @@ await verify('rni-expo-', async (dir) => {
       "export { default } from './src/App';\n"
     );
   } else {
+    // Named, so prebuild does not fall back to com.anonymous.app. Expo checks that name
+    // against the Play Store, and since it was taken there (2026-10-28, SDK 57) prebuild
+    // stops to ask "Continue?" — an error in non-interactive mode.
+    config.expo.android = {
+      ...config.expo.android,
+      package: 'com.reactnativeintune.verify',
+    };
     fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
   }
 
