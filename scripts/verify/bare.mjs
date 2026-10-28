@@ -9,7 +9,7 @@
  * second thing: `setup`, then each manual step the pages describe, then the installed
  * package's own `doctor`, which has to come back green before anything is compiled.
  *
- *     yarn verify:bare [--rn 0.87.1] [--platform android|ios] [--release] [--keep]
+ *     yarn verify:bare [--rn 0.88.1] [--platform android|ios] [--release] [--keep]
  *
  * `--rn` picks the React Native version, which is how the supported range is tested at
  * both ends. `--release` adds an unsigned Release build for a device — the
@@ -46,7 +46,7 @@ import {
 } from './common.mjs';
 
 /** Pinned and bumped deliberately, for the same reason as the Expo SDK is. */
-const RN_VERSION = option('rn', '0.87.1');
+const RN_VERSION = option('rn', '0.88.1');
 const CLI_VERSION = '20.2.0';
 const NAME = 'IntuneBare';
 
@@ -144,6 +144,17 @@ await verify('rni-bare-', async (dir) => {
     const packageName = checkApplicationSource(app);
     assembleDebug(app, androidHome);
     checkMamReport(app, packageName);
+    // React Native's template ships R8 off; a shipping app turns it on, and R8 is where
+    // AGP 9.2 failed on the MAM SDK's keep rules while every unminified build passed.
+    say('Turning on R8 for the release build');
+    edit(path.join(app, 'android/app/build.gradle'), (src) =>
+      src.includes('def enableProguardInReleaseBuilds = false')
+        ? src.replace(
+            'def enableProguardInReleaseBuilds = false',
+            'def enableProguardInReleaseBuilds = true'
+          )
+        : null
+    );
     assembleRelease(app, androidHome);
   }
 
